@@ -1,0 +1,88 @@
+name: rustpad
+version: "0.1.0"
+about: Multi-threaded Padding Oracle attacks against any service.
+settings:
+    - SubcommandRequired
+    - VersionlessSubcommands
+    - GlobalVersion
+    - DisableHelpSubcommand
+    - InferSubcommands
+    - UnifiedHelpMessage
+    - ColorAuto
+    - ColoredHelp
+args:
+    - oracle:
+        help: Oracle to question
+        long_help: "The oracle to question with forged cypher texts. This can be a URL or a shell script.
+
+        See the subcommands `web --help` and `script --help` respectively for further help."
+        short: o
+        takes_value: true
+        required: true
+        index: 1
+    - cypher_text:
+        help: Original cypher text
+        long_help: Original cypher text received from the target application
+        aliases: ctext
+        short: ct
+        takes_value: true
+        required: true
+        index: 2
+    - block_size:
+        help: Block size used by the cypher
+        short: bs
+        long: block_size
+        possible_values: [ auto, "8", "16" ]
+        default_value: auto
+        takes_value: true
+        global: true
+subcommands:
+    - web:
+        about: "Question a web-based oracle. Indicate the location of the cypher text (see `--keyword`)!"
+        display_order: 1
+        short_flag: W
+        long_flag: web
+        settings:
+            - UnifiedHelpMessage
+            - ColorAuto
+            - ColoredHelp
+        args:
+            - data:
+                help: Data for a POST request
+                short: d
+                long: data
+                takes_value: true
+            - header:
+                help: HTTP header to send
+                short: H
+                long: header
+                multiple: true
+                number_of_values: 1
+                takes_value: true
+            - redirect:
+                help: Follow 302 Redirects
+                short: r
+                long: redirect
+                takes_value: false
+            - insecure:
+                help: Disable TLS certificate validation
+                short: k
+                long: insecure
+                takes_value: false
+            - keyword:
+                help: Keyword indicating the cypher text
+                long_help: This keyword indicates the location of the cypher text in the HTTP request. It is replaced by the cypher text's value at runtime
+                short: w
+                long: keyword
+                default_value: CTEXT
+                takes_value: true
+
+    - script:
+        about: Question a script-based oracle. It must respond with exit code 1 for a correct padding, and any other code otherwise
+        display_order: 2
+        short_flag: S
+        long_flag: script
+        settings:
+            - UnifiedHelpMessage
+            - ColorAuto
+            - ColoredHelp
