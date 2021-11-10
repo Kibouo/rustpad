@@ -1,5 +1,5 @@
 [package]
-name = "rusty_oracle"
+name = "rustpad"
 version = "0.1.0"
 description = "Perform Padding Oracle attacks against web services."
 authors = ["Csonka Mihaly <csonka.mihaly@hotmail.com>"]

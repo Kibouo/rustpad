@@ -615,7 +615,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "rusty_oracle"
+name = "rustpad"
 version = "0.1.0"
 dependencies = [
  "anyhow",
