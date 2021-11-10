@@ -1,17 +1,19 @@
 use std::borrow::Cow;
 
-use super::{block::Block, block_size::BlockSize};
-
 use anyhow::{anyhow, Result};
 
-#[derive(Debug)]
+use crate::text::{block::Block, block_size::BlockSize};
+
+use super::BlockQuestion;
+
+#[derive(Debug, Clone)]
 pub struct CypherText {
-    blocks: Vec<Block>,
+    pub(super) blocks: Vec<Block>,
     url_encoded: bool,
     used_encoding: Encoding,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 enum Encoding {
     Base64,
     Base64Web,
@@ -20,6 +22,7 @@ enum Encoding {
 
 impl CypherText {
     pub fn decode(input_data: &str, block_size: &BlockSize) -> Result<Self> {
+        // url decode if needed
         let url_decoded = urlencoding::decode(input_data).unwrap_or(Cow::Borrowed(input_data));
 
         let (decoded_data, used_encoding) = decode(&url_decoded)?;
@@ -54,19 +57,57 @@ impl CypherText {
             encoded_data
         }
     }
+
+    pub fn amount_blocks(&self) -> usize {
+        self.blocks.len()
+    }
+
+    pub fn to_block_question(&self, tweakable_block_idx: usize) -> Result<BlockQuestion> {
+        if tweakable_block_idx + 2 > self.amount_blocks() {
+            return Err(anyhow!(
+                "Can't create a BlockQuestion for block {}, with only {} blocks existing",
+                tweakable_block_idx + 2, // +1 to specify target block, +1 for 1-indexing
+                self.amount_blocks()
+            ));
+        }
+
+        let prefix_blocks = self.blocks[..tweakable_block_idx].iter();
+        // already init the tweakable block with 0's
+        let tweakable_block = &Block::new(&self.block_size());
+        let to_decrypt_block = &self.blocks[tweakable_block_idx + 1];
+
+        let blocks = prefix_blocks
+            .chain([tweakable_block].into_iter())
+            .chain([to_decrypt_block].into_iter())
+            .into_iter()
+            .cloned()
+            .collect();
+
+        Ok(Self {
+            blocks,
+            url_encoded: self.url_encoded,
+            used_encoding: self.used_encoding,
+        }
+        .into())
+    }
+
+    pub fn block_size(&self) -> BlockSize {
+        BlockSize::from(&self.blocks[0])
+    }
 }
 
+// auto-detect encoding & decode it
 fn decode(input_data: &str) -> Result<(Vec<u8>, Encoding)> {
+    if let Ok(decoded_data) = hex::decode(&*input_data) {
+        return Ok((decoded_data, Encoding::Hex));
+    }
+
     if let Ok(decoded_data) = base64::decode_config(&*input_data, base64::STANDARD) {
         return Ok((decoded_data, Encoding::Base64));
     }
 
     if let Ok(decoded_data) = base64::decode_config(&*input_data, base64::URL_SAFE) {
         return Ok((decoded_data, Encoding::Base64Web));
-    }
-
-    if let Ok(decoded_data) = hex::decode(&*input_data) {
-        return Ok((decoded_data, Encoding::Hex));
     }
 
     Err(anyhow!(
@@ -85,20 +126,7 @@ fn split_into_blocks(decoded_data: &[u8], block_size: BlockSize) -> Result<Vec<B
 
     let blocks = decoded_data
         .chunks_exact(usize::from(block_size))
-        .map(|chunk| match block_size {
-            BlockSize::Eight => Block::Eight(chunk.try_into().unwrap_or_else(|_| {
-                panic!(
-                    "Not enough data to fill block of {}",
-                    usize::from(block_size)
-                )
-            })),
-            BlockSize::Sixteen => Block::Sixteen(chunk.try_into().unwrap_or_else(|_| {
-                panic!(
-                    "Not enough data to fill block of {}",
-                    usize::from(block_size)
-                )
-            })),
-        })
+        .map(|chunk| Block::from((chunk, &block_size)))
         .collect();
 
     Ok(blocks)

@@ -13,15 +13,15 @@ use crate::oracle::oracle_location::OracleLocation;
 
 use self::block_size_option::BlockSizeOption;
 
-// Native struct for CLI args.
+/// Native struct for CLI args.
 // Why: because `Clap::ArgMatches` is underlying a `HashMap`, and accessing requires passing strings and error checking. That's ugly.
 #[derive(Debug)]
 pub struct Options {
-    pub oracle_location: OracleLocation,
-    pub cypher_text: String,
-    pub block_size: BlockSizeOption,
+    oracle_location: OracleLocation,
+    cypher_text: String,
+    block_size: BlockSizeOption,
     // sub-commands options
-    pub sub_options: SubOptions,
+    sub_options: SubOptions,
 }
 
 #[derive(Debug)]
@@ -84,6 +84,19 @@ impl Options {
             }
             _ => unreachable!(format!("Invalid sub-command: {}", sub_command)),
         }
+    }
+
+    pub fn oracle_location(&self) -> &OracleLocation {
+        &self.oracle_location
+    }
+    pub fn cypher_text(&self) -> &str {
+        &self.cypher_text
+    }
+    pub fn block_size(&self) -> &BlockSizeOption {
+        &self.block_size
+    }
+    pub fn sub_options(&self) -> &SubOptions {
+        &self.sub_options
     }
 }
 

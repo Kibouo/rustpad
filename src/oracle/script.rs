@@ -2,7 +2,7 @@ use std::{path::PathBuf, process::Command};
 
 use anyhow::{anyhow, Context, Result};
 
-use crate::text::cypher_text::CypherText;
+use crate::text::block_question::BlockQuestion;
 
 use super::{oracle_location::OracleLocation, Oracle};
 
@@ -24,7 +24,7 @@ impl Oracle for ScriptOracle {
         })
     }
 
-    fn ask_validation(&self, cypher_text: CypherText) -> Result<bool> {
+    fn ask_validation(&self, cypher_text: &BlockQuestion) -> Result<bool> {
         let status = Command::new("/bin/sh")
             .arg("-c")
             .arg(format!(

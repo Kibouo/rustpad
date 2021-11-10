@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use reqwest::Url;
 
-use crate::text::cypher_text::CypherText;
+use crate::text::block_question::BlockQuestion;
 
 use super::{oracle_location::OracleLocation, Oracle};
 
@@ -23,7 +23,7 @@ impl Oracle for WebOracle {
         })
     }
 
-    fn ask_validation(&self, cypher_text: CypherText) -> Result<bool> {
+    fn ask_validation(&self, cypher_text: &BlockQuestion) -> Result<bool> {
         todo!()
     }
 
