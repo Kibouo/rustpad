@@ -38,7 +38,7 @@ args:
         global: true
 subcommands:
     - web:
-        about: "Question a web-based oracle. Indicate the location of the cypher text (see `--keyword`)!"
+        about: "Question a web-based oracle. Cypher text's location must be indicated (see `--keyword`)!"
         display_order: 1
         short_flag: W
         long_flag: web
@@ -78,7 +78,7 @@ subcommands:
                 takes_value: true
 
     - script:
-        about: Question a script-based oracle. It must respond with exit code 1 for a correct padding, and any other code otherwise
+        about: Question a script-based oracle. Script must respond with exit code 0 for correct padding, and any other code otherwise. Cypher text is passed as the 1st argument
         display_order: 2
         short_flag: S
         long_flag: script

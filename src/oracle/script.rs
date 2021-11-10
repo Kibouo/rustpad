@@ -1,31 +1,36 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, process::Command};
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 
-use crate::{cli::oracle_location::OracleLocation, question::Question};
+use crate::text::cypher_text::CypherText;
 
-use super::Oracle;
+use super::{oracle_location::OracleLocation, Oracle};
 
 pub struct ScriptOracle {
     path: PathBuf,
 }
 
 impl Oracle for ScriptOracle {
-    fn visit(oracle_location: OracleLocation) -> Result<Self> {
+    fn visit(oracle_location: &OracleLocation) -> Result<Self> {
         let path = match oracle_location {
             OracleLocation::Script(path) => path,
             OracleLocation::Web(_) => {
-                return Err(anyhow!(
-                    "Tried to visit a 'script' oracle using a file path!"
-                ))
+                return Err(anyhow!("Tried to visit the script oracle using a URL!"))
             }
         };
 
-        Ok(Self { path })
+        Ok(Self {
+            path: path.to_path_buf(),
+        })
     }
 
-    fn ask_validation(self, question: Question) -> bool {
-        todo!()
+    fn ask_validation(&self, cypher_text: CypherText) -> Result<bool> {
+        let status = Command::new(self.path.as_path())
+            .arg(cypher_text.encode())
+            .status()
+            .context(format!("Failed to run script: {}", self.path.display()))?;
+
+        Ok(status.success())
     }
 
     fn location(&self) -> OracleLocation {

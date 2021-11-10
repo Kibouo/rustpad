@@ -1,15 +1,17 @@
 use anyhow::Result;
 
-use crate::{cli::oracle_location::OracleLocation, question::Question};
+use crate::text::cypher_text::CypherText;
 
+use self::oracle_location::OracleLocation;
+
+pub mod oracle_location;
 pub mod script;
 pub mod web;
 
 pub trait Oracle {
-    fn visit(oracle_location: OracleLocation) -> Result<Self>
+    fn visit(oracle_location: &OracleLocation) -> Result<Self>
     where
         Self: Sized;
-    fn ask_divination(self, )
-    fn ask_validation(self, question: Question) -> bool;
+    fn ask_validation(&self, cypher_text: CypherText) -> Result<bool>;
     fn location(&self) -> OracleLocation;
 }

@@ -1,11 +1,11 @@
 #[derive(Debug)]
-pub enum BlockSize {
+pub enum BlockSizeOption {
     Eight,
     Sixteen,
     Auto,
 }
 
-impl From<&str> for BlockSize {
+impl From<&str> for BlockSizeOption {
     fn from(data: &str) -> Self {
         match data {
             "auto" => Self::Auto,

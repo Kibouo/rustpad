@@ -11,3 +11,4 @@
 - resume
 - add license
 - add marketing
+    - GitHub & GitLab sync? https://dev.to/brunorobert/github-and-gitlab-sync-44mn
