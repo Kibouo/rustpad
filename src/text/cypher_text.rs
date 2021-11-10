@@ -22,12 +22,12 @@ impl CypherText {
     pub fn decode(input_data: &str, block_size: &BlockSize) -> Result<Self> {
         let url_decoded = urlencoding::decode(input_data).unwrap_or(Cow::Borrowed(input_data));
 
-        let (decoded_data, used_encoding) = decode(input_data)?;
+        let (decoded_data, used_encoding) = decode(&url_decoded)?;
         let blocks = split_into_blocks(&decoded_data[..], *block_size)?;
 
         Ok(Self {
             blocks,
-            url_encoded: input_data == url_decoded,
+            url_encoded: input_data != url_decoded,
             used_encoding,
         })
     }
