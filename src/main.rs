@@ -1,14 +1,14 @@
+mod block;
 mod cli;
 mod oracle;
 mod questioning;
-mod text;
 
 use anyhow::Result;
 
 use crate::{
+    block::{block_question::cypher_text::CypherText, block_size::BlockSize},
     cli::{block_size_option::BlockSizeOption, Options},
     questioning::Questioning,
-    text::{block_question::cypher_text::CypherText, block_size::BlockSize},
 };
 
 fn main() -> Result<()> {
@@ -20,7 +20,8 @@ fn main() -> Result<()> {
         BlockSizeOption::Auto => todo!(),
     };
 
-    let question = Questioning::prepare(cypher_text)?.start(options.oracle_location());
+    let question = Questioning::prepare(cypher_text)?.start(options.oracle_location())?;
+    eprintln!("question = {:#?}", question);
 
     Ok(())
 }

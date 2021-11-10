@@ -1,4 +1,6 @@
-use super::block::Block;
+use std::ops::Deref;
+
+use super::Block;
 
 #[derive(Clone, Copy)]
 pub enum BlockSize {
@@ -16,11 +18,13 @@ impl From<&str> for BlockSize {
     }
 }
 
-impl From<BlockSize> for usize {
-    fn from(block_size: BlockSize) -> Self {
-        match block_size {
-            BlockSize::Eight => 8,
-            BlockSize::Sixteen => 16,
+impl Deref for BlockSize {
+    type Target = usize;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            BlockSize::Eight => &8,
+            BlockSize::Sixteen => &16,
         }
     }
 }

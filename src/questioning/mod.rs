@@ -1,8 +1,11 @@
 use anyhow::{Context, Result};
 
 use crate::{
+    block::{
+        block_answer::BlockAnswer,
+        block_question::{cypher_text::CypherText, BlockQuestion},
+    },
     oracle::{oracle_location::OracleLocation, script::ScriptOracle, web::WebOracle, Oracle},
-    text::block_question::{cypher_text::CypherText, BlockQuestion},
 };
 
 pub struct Questioning {
@@ -19,7 +22,10 @@ impl Questioning {
         let mut partial_questions =
             Vec::with_capacity(cypher_text.amount_blocks() - blocks_to_skip);
         for block_to_decrypt_idx in blocks_to_skip..cypher_text.amount_blocks() {
-            partial_questions.push(cypher_text.to_block_question(block_to_decrypt_idx - 1)?);
+            partial_questions.push(BlockQuestion::try_from((
+                &cypher_text,
+                block_to_decrypt_idx - 1,
+            ))?);
         }
 
         Ok(Self {
@@ -28,7 +34,7 @@ impl Questioning {
         })
     }
 
-    pub fn start(&mut self, oracle_location: &OracleLocation) -> Result<Vec<BlockQuestion>> {
+    pub fn start(&mut self, oracle_location: &OracleLocation) -> Result<Vec<BlockAnswer>> {
         let oracle: Box<dyn Oracle> = match oracle_location {
             OracleLocation::Web(_) => Box::new(WebOracle::visit(oracle_location)?),
             OracleLocation::Script(_) => Box::new(ScriptOracle::visit(oracle_location)?),
@@ -40,7 +46,7 @@ impl Questioning {
                 let current_block_idx = question.amount_blocks();
 
                 let mut bytes_answered = 0;
-                while bytes_answered < usize::from(question.block_size()) {
+                while bytes_answered < *question.block_size() {
                     let correct_padding = oracle.ask_validation(question)?;
 
                     if correct_padding {
@@ -50,12 +56,12 @@ impl Questioning {
                             .context(format!("Failed to decrypt block {}", current_block_idx))?;
                     } else {
                         question
-                            .increment_byte()
+                            .increment_current_byte()
                             .context(format!("Failed to decrypt block {}", current_block_idx))?;
                     }
                 }
 
-                Ok(question.clone())
+                question.try_into()
             })
             .collect()
     }

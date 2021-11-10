@@ -2,9 +2,7 @@ use std::borrow::Cow;
 
 use anyhow::{anyhow, Result};
 
-use crate::text::{block::Block, block_size::BlockSize};
-
-use super::BlockQuestion;
+use crate::block::{block_size::BlockSize, Block};
 
 #[derive(Debug, Clone)]
 pub struct CypherText {
@@ -62,37 +60,25 @@ impl CypherText {
         self.blocks.len()
     }
 
-    pub fn to_block_question(&self, tweakable_block_idx: usize) -> Result<BlockQuestion> {
-        if tweakable_block_idx + 2 > self.amount_blocks() {
-            return Err(anyhow!(
-                "Can't create a BlockQuestion for block {}, with only {} blocks existing",
-                tweakable_block_idx + 2, // +1 to specify target block, +1 for 1-indexing
-                self.amount_blocks()
-            ));
-        }
+    pub fn block_size(&self) -> BlockSize {
+        self.blocks[0].block_size()
+    }
 
-        let prefix_blocks = self.blocks[..tweakable_block_idx].iter();
-        // already init the tweakable block with 0's
-        let tweakable_block = &Block::new(&self.block_size());
-        let to_decrypt_block = &self.blocks[tweakable_block_idx + 1];
+    pub fn tweakable_block(&self) -> &Block {
+        &self.blocks[self.amount_blocks() - 2]
+    }
 
-        let blocks = prefix_blocks
-            .chain([tweakable_block].into_iter())
-            .chain([to_decrypt_block].into_iter())
-            .into_iter()
-            .cloned()
-            .collect();
+    pub fn tweakable_block_mut(&mut self) -> &mut Block {
+        let idx = self.amount_blocks() - 2;
+        &mut self.blocks[idx]
+    }
 
-        Ok(Self {
+    pub fn clone_with_blocks(&self, blocks: Vec<Block>) -> Self {
+        Self {
             blocks,
             url_encoded: self.url_encoded,
             used_encoding: self.used_encoding,
         }
-        .into())
-    }
-
-    pub fn block_size(&self) -> BlockSize {
-        BlockSize::from(&self.blocks[0])
     }
 }
 
@@ -117,15 +103,15 @@ fn decode(input_data: &str) -> Result<(Vec<u8>, Encoding)> {
 }
 
 fn split_into_blocks(decoded_data: &[u8], block_size: BlockSize) -> Result<Vec<Block>> {
-    if decoded_data.len() % usize::from(block_size) != 0 {
+    if decoded_data.len() % *block_size != 0 {
         return Err(anyhow!(
             "Failed to split cypher text into blocks of size {}",
-            Into::<usize>::into(block_size)
+            *block_size
         ));
     }
 
     let blocks = decoded_data
-        .chunks_exact(usize::from(block_size))
+        .chunks_exact(*block_size)
         .map(|chunk| Block::from((chunk, &block_size)))
         .collect();
 

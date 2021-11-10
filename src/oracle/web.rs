@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use reqwest::Url;
 
-use crate::text::block_question::BlockQuestion;
+use crate::block::block_question::BlockQuestion;
 
 use super::{oracle_location::OracleLocation, Oracle};
 

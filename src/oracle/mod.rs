@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::text::block_question::BlockQuestion;
+use crate::block::block_question::BlockQuestion;
 
 use self::oracle_location::OracleLocation;
 
