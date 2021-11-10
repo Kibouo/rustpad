@@ -25,8 +25,16 @@ impl Oracle for ScriptOracle {
     }
 
     fn ask_validation(&self, cypher_text: CypherText) -> Result<bool> {
-        let status = Command::new(self.path.as_path())
-            .arg(cypher_text.encode())
+        let status = Command::new("/bin/sh")
+            .arg("-c")
+            .arg(format!(
+                "{} {}",
+                self.path
+                    .as_path()
+                    .to_str()
+                    .ok_or_else(|| anyhow!("Invalid path: {}", self.path.display()))?,
+                cypher_text.encode()
+            ))
             .status()
             .context(format!("Failed to run script: {}", self.path.display()))?;
 
