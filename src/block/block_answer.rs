@@ -1,5 +1,7 @@
 use std::ops::Deref;
 
+use anyhow::anyhow;
+
 use super::{block_question::BlockQuestion, Block};
 
 #[derive(Debug)]
@@ -17,7 +19,11 @@ impl TryFrom<&mut BlockQuestion> for BlockAnswer {
     type Error = anyhow::Error;
 
     fn try_from(question: &mut BlockQuestion) -> Result<Self, Self::Error> {
-        // TODO: check if all bytes are locked
+        if !question.is_answered() {
+            return Err(anyhow!(
+                "Can't compute plaintext. Not all bytes of this block were locked"
+            ));
+        }
 
         let intermediate = question.tweakable_block_solution()
             ^ &Block::new_incremental_padding(&question.block_size());

@@ -99,6 +99,10 @@ impl BlockQuestion {
         }
     }
 
+    pub fn is_answered(&self) -> bool {
+        self.current_byte_idx.is_none()
+    }
+
     pub fn tweakable_block_solution(&self) -> &Block {
         &self.tweakable_block_solution
     }
