@@ -8,6 +8,16 @@ pub enum BlockSize {
     Sixteen,
 }
 
+impl From<usize> for BlockSize {
+    fn from(data: usize) -> Self {
+        match data {
+            8 => Self::Eight,
+            16 => Self::Sixteen,
+            _ => unreachable!(format!("Invalid block size: {}", data)),
+        }
+    }
+}
+
 impl From<&str> for BlockSize {
     fn from(data: &str) -> Self {
         match data {

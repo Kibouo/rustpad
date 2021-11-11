@@ -1,4 +1,5 @@
 # TODO:
+- check for keyword
 - specify/calc amount threads
 - specify encoding
 - noiv option (cypher text doesn't include IV)

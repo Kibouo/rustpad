@@ -35,8 +35,8 @@ impl Block {
         match self {
             Block::Eight(data) => {
                 if idx < 8 {
+                    // error instead of wrap around to 0 as wrapping could introduce infinite loops
                     if data[idx] == u8::MAX {
-                        // error instead of wrap around to 0 as wrapping could introduce infinite loops
                         return Err(anyhow!(
                             "Can't increment byte {} without overflowing",
                             idx + 1
@@ -53,8 +53,8 @@ impl Block {
             }
             Block::Sixteen(data) => {
                 if idx < 16 {
+                    // error instead of wrap around to 0 as wrapping could introduce infinite loops
                     if data[idx] == u8::MAX {
-                        // error instead of wrap around to 0 as wrapping could introduce infinite loops
                         return Err(anyhow!(
                             "Can't increment byte {} without overflowing",
                             idx + 1
@@ -99,23 +99,24 @@ impl BitXor for &Block {
             .map(|(l, r)| l ^ r)
             .collect();
 
-        Ok((&xored_bytes[..], &self.block_size()).into())
+        Ok(xored_bytes[..].into())
     }
 }
 
-impl From<(&[u8], &BlockSize)> for Block {
-    fn from((chunk_data, block_size): (&[u8], &BlockSize)) -> Self {
+impl From<&[u8]> for Block {
+    fn from(chunk_data: &[u8]) -> Self {
+        let block_size = chunk_data.len().into();
         match block_size {
-            BlockSize::Eight => {
-                Block::Eight(chunk_data.try_into().unwrap_or_else(|_| {
-                    panic!("Not enough data to fill block of {}", **block_size)
-                }))
-            }
-            BlockSize::Sixteen => {
-                Block::Sixteen(chunk_data.try_into().unwrap_or_else(|_| {
-                    panic!("Not enough data to fill block of {}", **block_size)
-                }))
-            }
+            BlockSize::Eight => Block::Eight(
+                chunk_data
+                    .try_into()
+                    .unwrap_or_else(|_| panic!("Not enough data to fill block of {}", *block_size)),
+            ),
+            BlockSize::Sixteen => Block::Sixteen(
+                chunk_data
+                    .try_into()
+                    .unwrap_or_else(|_| panic!("Not enough data to fill block of {}", *block_size)),
+            ),
         }
     }
 }

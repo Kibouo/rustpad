@@ -17,63 +17,10 @@ pub struct BlockQuestion {
 }
 
 impl BlockQuestion {
-    pub fn increment_current_byte(&mut self) -> Result<&mut Self> {
-        let byte_idx = self
-            .current_byte_idx
-            .ok_or_else(|| anyhow!("Can't increment byte after they're all locked"))?;
-
-        self.cypher_text
-            .tweakable_block_mut()
-            .increment_byte(byte_idx)?;
-
-        Ok(self)
-    }
-
-    // The current byte's value was found. Advance and save the solution.
-    pub fn lock_byte(&mut self) -> Result<&mut Self> {
-        match self.current_byte_idx {
-            Some(idx) => {
-                // locking a byte means it's supposedly correct. Because it gets adjusted, see below, we gotta save the solution
-                self.tweakable_block_solution[idx] = self.cypher_text.tweakable_block()[idx];
-
-                // PKCS5/7 padding's value is the same as its length. So the desired padding when testing for the last byte is 0x01. But when testing the 2nd last byte, the last byte must be 0x02. This means that when moving on to the next byte (right to left), all previous ones must be incremented by 1.
-                (idx..*self.block_size())
-                    .map(|i| {
-                        self.cypher_text
-                            .tweakable_block_mut()
-                            .increment_byte(i)
-                            .map(|_| ())
-                    })
-                    .collect::<Result<Vec<_>>>()?;
-
-                if idx == 0 {
-                    self.current_byte_idx = None;
-                } else {
-                    self.current_byte_idx = Some(idx - 1);
-                }
-
-                Ok(self)
-            }
-            None => Err(anyhow!(
-                "Already locked all bytes! Current tweakable block layout: {:?}",
-                self.cypher_text.tweakable_block()
-            )),
-        }
-    }
-
-    pub fn tweakable_block_solution(&self) -> &Block {
-        &self.tweakable_block_solution
-    }
-
-    pub fn original_tweakable_block(&self) -> &Block {
-        &self.original_tweakable_block
-    }
-}
-
-impl TryFrom<(&CypherText, usize)> for BlockQuestion {
-    type Error = anyhow::Error;
-
-    fn try_from((cypher_text, tweakable_block_idx): (&CypherText, usize)) -> Result<Self> {
+    pub fn clone_part_of_cypher_text(
+        cypher_text: &CypherText,
+        tweakable_block_idx: usize,
+    ) -> Result<Self> {
         if tweakable_block_idx + 2 > cypher_text.amount_blocks() {
             return Err(anyhow!(
                 "Can't create a BlockQuestion for block {}, with only {} blocks existing",
@@ -109,6 +56,58 @@ impl TryFrom<(&CypherText, usize)> for BlockQuestion {
         };
 
         Ok(block_question)
+    }
+
+    pub fn increment_current_byte(&mut self) -> Result<&mut Self> {
+        let byte_idx = self
+            .current_byte_idx
+            .ok_or_else(|| anyhow!("Can't increment byte after they're all locked"))?;
+
+        self.cypher_text
+            .tweakable_block_mut()
+            .increment_byte(byte_idx)?;
+
+        Ok(self)
+    }
+
+    /// Indicate that the current byte's value was found. Advance and save the solution.
+    pub fn lock_byte(&mut self) -> Result<&mut Self> {
+        match self.current_byte_idx {
+            Some(idx) => {
+                // locking a byte means it's supposedly correct. Because it gets adjusted, see below, we gotta save the solution
+                self.tweakable_block_solution[idx] = self.cypher_text.tweakable_block()[idx];
+
+                // PKCS5/7 padding's value is the same as its length. So the desired padding when testing for the last byte is 0x01. But when testing the 2nd last byte, the last byte must be 0x02. This means that when moving on to the next byte (right to left), all previous bytes  incremented by 1.
+                (idx..*self.block_size())
+                    .map(|i| {
+                        self.cypher_text
+                            .tweakable_block_mut()
+                            .increment_byte(i)
+                            .map(|_| ())
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+
+                if idx == 0 {
+                    self.current_byte_idx = None;
+                } else {
+                    self.current_byte_idx = Some(idx - 1);
+                }
+
+                Ok(self)
+            }
+            None => Err(anyhow!(
+                "Already locked all bytes! Current tweakable block layout: {:?}",
+                self.cypher_text.tweakable_block()
+            )),
+        }
+    }
+
+    pub fn tweakable_block_solution(&self) -> &Block {
+        &self.tweakable_block_solution
+    }
+
+    pub fn original_tweakable_block(&self) -> &Block {
+        &self.original_tweakable_block
     }
 }
 

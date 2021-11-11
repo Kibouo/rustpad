@@ -9,10 +9,8 @@ pub enum OracleLocation {
     Script(PathBuf),
 }
 
-impl TryFrom<(&str, &str)> for OracleLocation {
-    type Error = anyhow::Error;
-
-    fn try_from((oracle_location, oracle_type): (&str, &str)) -> Result<Self> {
+impl OracleLocation {
+    pub fn new(oracle_location: &str, oracle_type: &str) -> Result<Self> {
         match oracle_type {
             "web" => Ok(Self::Web(
                 Url::try_from(oracle_location)

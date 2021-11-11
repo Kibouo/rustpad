@@ -112,7 +112,7 @@ fn split_into_blocks(decoded_data: &[u8], block_size: BlockSize) -> Result<Vec<B
 
     let blocks = decoded_data
         .chunks_exact(*block_size)
-        .map(|chunk| Block::from((chunk, &block_size)))
+        .map(|chunk| chunk.into())
         .collect();
 
     Ok(blocks)

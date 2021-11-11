@@ -153,10 +153,10 @@ fn parse_as_web(
     };
 
     Ok(Options {
-        oracle_location: OracleLocation::try_from((
+        oracle_location: OracleLocation::new(
             &oracle_location.replace(keyword, cypher_text)[..],
             sub_command,
-        ))?,
+        )?,
         cypher_text: cypher_text.to_string(),
         block_size,
         sub_options: SubOptions::Web(web_options),
@@ -171,7 +171,7 @@ fn parse_as_script(
     _sub_command_args: &ArgMatches,
 ) -> Result<Options> {
     Ok(Options {
-        oracle_location: OracleLocation::try_from((oracle_location, sub_command))?,
+        oracle_location: OracleLocation::new(oracle_location, sub_command)?,
         cypher_text: cypher_text.to_string(),
         block_size,
         sub_options: SubOptions::Script(ScriptOptions {}),
