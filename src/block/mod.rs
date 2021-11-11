@@ -22,7 +22,7 @@ impl Block {
         }
     }
 
-    pub fn incremental_padding(block_size: &BlockSize) -> Self {
+    pub fn new_incremental_padding(block_size: &BlockSize) -> Self {
         match block_size {
             BlockSize::Eight => Block::Eight([8, 7, 6, 5, 4, 3, 2, 1]),
             BlockSize::Sixteen => {
@@ -35,16 +35,38 @@ impl Block {
         match self {
             Block::Eight(data) => {
                 if idx < 8 {
+                    if data[idx] == u8::MAX {
+                        // error instead of wrap around to 0 as wrapping could introduce infinite loops
+                        return Err(anyhow!(
+                            "Can't increment byte {} without overflowing",
+                            idx + 1
+                        ));
+                    }
+
                     data[idx] += 1;
                 } else {
-                    return Err(anyhow!("Tried to increment byte {} of 8-byte block", idx));
+                    return Err(anyhow!(
+                        "Tried to increment byte {} of 8-byte block",
+                        idx + 1
+                    ));
                 }
             }
             Block::Sixteen(data) => {
                 if idx < 16 {
+                    if data[idx] == u8::MAX {
+                        // error instead of wrap around to 0 as wrapping could introduce infinite loops
+                        return Err(anyhow!(
+                            "Can't increment byte {} without overflowing",
+                            idx + 1
+                        ));
+                    }
+
                     data[idx] += 1;
                 } else {
-                    return Err(anyhow!("Tried to increment byte {} of 16-byte block", idx));
+                    return Err(anyhow!(
+                        "Tried to increment byte {} of 16-byte block",
+                        idx + 1
+                    ));
                 }
             }
         }
