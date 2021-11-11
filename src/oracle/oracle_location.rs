@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Context, Result};
+use is_executable::IsExecutable;
 use reqwest::Url;
 use std::{convert::TryFrom, path::PathBuf};
 
@@ -21,6 +22,8 @@ impl TryFrom<(&str, &str)> for OracleLocation {
                 let path = PathBuf::from(oracle_location);
                 return if !path.is_file() {
                     Err(anyhow!("Invalid file path: {}", oracle_location))
+                } else if !path.is_executable() {
+                    Err(anyhow!("Can't execute file at {}", oracle_location))
                 } else {
                     Ok(Self::Script(path))
                 };
