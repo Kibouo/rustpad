@@ -74,6 +74,18 @@ impl Block {
         Ok(self)
     }
 
+    // adjust bytes to produce the new correct padding.
+    // Due to xor's working, this cannot be done as a simple +1 in byte value. We must use xor's commutative property.
+    pub fn adjust_for_incremented_padding(&mut self, new_pad_size: u8) -> &mut Self {
+        let old_pad_size = new_pad_size - 1;
+        let xor_diff = old_pad_size ^ new_pad_size;
+
+        for i in self.len() - (old_pad_size as usize)..self.len() {
+            self[i] ^= xor_diff;
+        }
+        self
+    }
+
     pub fn block_size(&self) -> BlockSize {
         BlockSize::from(self)
     }

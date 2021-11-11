@@ -103,7 +103,7 @@ fn decode(input_data: &str) -> Result<(Vec<u8>, Encoding)> {
 }
 
 fn split_into_blocks(decoded_data: &[u8], block_size: BlockSize) -> Result<Vec<Block>> {
-    if decoded_data.len() % *block_size != 0 {
+    if decoded_data.len() % (*block_size as usize) != 0 {
         return Err(anyhow!(
             "Failed to split cypher text into blocks of size {}",
             *block_size
@@ -111,7 +111,7 @@ fn split_into_blocks(decoded_data: &[u8], block_size: BlockSize) -> Result<Vec<B
     }
 
     let blocks = decoded_data
-        .chunks_exact(*block_size)
+        .chunks_exact(*block_size as usize)
         .map(|chunk| chunk.into())
         .collect();
 

@@ -11,7 +11,7 @@ pub mod cypher_text;
 #[derive(Debug, Clone)]
 pub struct BlockQuestion {
     cypher_text: CypherText,
-    current_byte_idx: Option<usize>,
+    current_byte_idx: Option<u8>,
     original_tweakable_block: Block,
     tweakable_block_solution: Block,
 }
@@ -65,7 +65,7 @@ impl BlockQuestion {
 
         self.cypher_text
             .tweakable_block_mut()
-            .increment_byte(byte_idx)?;
+            .increment_byte(byte_idx as usize)?;
 
         Ok(self)
     }
@@ -75,22 +75,19 @@ impl BlockQuestion {
         match self.current_byte_idx {
             Some(idx) => {
                 // locking a byte means it's supposedly correct. Because it gets adjusted, see below, we gotta save the solution
-                self.tweakable_block_solution[idx] = self.cypher_text.tweakable_block()[idx];
-
-                // PKCS5/7 padding's value is the same as its length. So the desired padding when testing for the last byte is 0x01. But when testing the 2nd last byte, the last byte must be 0x02. This means that when moving on to the next byte (right to left), all previous bytes  incremented by 1.
-                (idx..*self.block_size())
-                    .map(|i| {
-                        self.cypher_text
-                            .tweakable_block_mut()
-                            .increment_byte(i)
-                            .map(|_| ())
-                    })
-                    .collect::<Result<Vec<_>>>()?;
+                self.tweakable_block_solution[idx as usize] =
+                    self.cypher_text.tweakable_block()[idx as usize];
 
                 if idx == 0 {
                     self.current_byte_idx = None;
                 } else {
                     self.current_byte_idx = Some(idx - 1);
+
+                    // PKCS5/7 padding's value is the same as its length. So the desired padding when testing for the last byte is 0x01. But when testing the 2nd last byte, the last byte must be 0x02. This means that when moving on to the next byte (right to left), all of the previous bytes' solutions must be adjusted.
+                    let block_size = *self.cypher_text.block_size();
+                    self.cypher_text
+                        .tweakable_block_mut()
+                        .adjust_for_incremented_padding(block_size - (idx - 1));
                 }
 
                 Ok(self)

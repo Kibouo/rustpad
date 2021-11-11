@@ -8,6 +8,16 @@ pub enum BlockSize {
     Sixteen,
 }
 
+impl From<u8> for BlockSize {
+    fn from(data: u8) -> Self {
+        match data {
+            8 => Self::Eight,
+            16 => Self::Sixteen,
+            _ => unreachable!(format!("Invalid block size: {}", data)),
+        }
+    }
+}
+
 impl From<usize> for BlockSize {
     fn from(data: usize) -> Self {
         match data {
@@ -29,7 +39,7 @@ impl From<&str> for BlockSize {
 }
 
 impl Deref for BlockSize {
-    type Target = usize;
+    type Target = u8;
 
     fn deref(&self) -> &Self::Target {
         match self {
