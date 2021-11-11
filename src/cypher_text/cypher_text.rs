@@ -1,25 +1,21 @@
+use crate::block::{block_size::BlockSizeTrait, Block};
 use std::borrow::Cow;
 
 use anyhow::{anyhow, Result};
 
-use crate::block::{block_size::BlockSize, Block};
+use crate::block::block_size::BlockSize;
+
+use super::{AmountBlocksTrait, Encode, Encoding};
 
 #[derive(Debug, Clone)]
 pub struct CypherText {
-    pub(super) blocks: Vec<Block>,
+    blocks: Vec<Block>,
     url_encoded: bool,
     used_encoding: Encoding,
 }
 
-#[derive(Debug, Clone, Copy)]
-enum Encoding {
-    Base64,
-    Base64Web,
-    Hex,
-}
-
 impl CypherText {
-    pub fn decode(input_data: &str, block_size: &BlockSize) -> Result<Self> {
+    pub fn parse(input_data: &str, block_size: &BlockSize) -> Result<Self> {
         // url decode if needed
         let url_decoded = urlencoding::decode(input_data).unwrap_or(Cow::Borrowed(input_data));
 
@@ -32,53 +28,33 @@ impl CypherText {
             used_encoding,
         })
     }
+}
 
-    pub fn encode(&self) -> String {
-        let raw_bytes: Vec<u8> = self
-            .blocks
-            .iter()
-            .map(|block| &(**block)[..])
-            .flatten()
-            // blocks are scattered through memory, gotta collect them
-            .cloned()
-            .collect();
+impl<'a> Encode<'a> for CypherText {
+    type Blocks = &'a [Block];
 
-        let encoded_data = match self.used_encoding {
-            Encoding::Base64 => base64::encode_config(raw_bytes, base64::STANDARD),
-            Encoding::Base64Web => base64::encode_config(raw_bytes, base64::URL_SAFE),
-            Encoding::Hex => hex::encode(raw_bytes),
-        };
-
-        if self.url_encoded {
-            urlencoding::encode(&encoded_data).to_string()
-        } else {
-            encoded_data
-        }
+    fn blocks(&'a self) -> Self::Blocks {
+        &self.blocks[..]
     }
 
-    pub fn amount_blocks(&self) -> usize {
-        self.blocks.len()
+    fn url_encoded(&self) -> bool {
+        self.url_encoded
     }
 
-    pub fn block_size(&self) -> BlockSize {
-        self.blocks[0].block_size()
+    fn used_encoding(&self) -> Encoding {
+        self.used_encoding
     }
+}
 
-    pub fn tweakable_block(&self) -> &Block {
-        &self.blocks[self.amount_blocks() - 2]
+impl BlockSizeTrait for CypherText {
+    fn block_size(&self) -> BlockSize {
+        self.blocks()[0].block_size()
     }
+}
 
-    pub fn tweakable_block_mut(&mut self) -> &mut Block {
-        let idx = self.amount_blocks() - 2;
-        &mut self.blocks[idx]
-    }
-
-    pub fn clone_with_blocks(&self, blocks: Vec<Block>) -> Self {
-        Self {
-            blocks,
-            url_encoded: self.url_encoded,
-            used_encoding: self.used_encoding,
-        }
+impl AmountBlocksTrait for CypherText {
+    fn amount_blocks(&self) -> usize {
+        self.blocks().len()
     }
 }
 

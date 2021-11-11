@@ -8,6 +8,10 @@ pub enum BlockSize {
     Sixteen,
 }
 
+pub trait BlockSizeTrait {
+    fn block_size(&self) -> BlockSize;
+}
+
 impl From<u8> for BlockSize {
     fn from(data: u8) -> Self {
         match data {

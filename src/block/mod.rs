@@ -1,12 +1,10 @@
-pub mod block_answer;
-pub mod block_question;
 pub mod block_size;
 
 use std::ops::{BitXor, Deref, DerefMut};
 
 use anyhow::{anyhow, Result};
 
-use self::block_size::BlockSize;
+use self::block_size::{BlockSize, BlockSizeTrait};
 
 #[derive(Debug, Clone)]
 pub enum Block {
@@ -29,6 +27,33 @@ impl Block {
                 Block::Sixteen([16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1])
             }
         }
+    }
+
+    pub fn set_byte(&mut self, index: usize, value: u8) -> Result<&mut Self> {
+        match self {
+            Block::Eight(data) => {
+                if index < 8 {
+                    data[index] += value;
+                } else {
+                    return Err(anyhow!(
+                        "Tried to increment byte {} of 8-byte block",
+                        index + 1
+                    ));
+                }
+            }
+            Block::Sixteen(data) => {
+                if index < 16 {
+                    data[index] = value;
+                } else {
+                    return Err(anyhow!(
+                        "Tried to increment byte {} of 16-byte block",
+                        index + 1
+                    ));
+                }
+            }
+        }
+
+        Ok(self)
     }
 
     pub fn increment_byte(&mut self, idx: usize) -> Result<&mut Self> {
@@ -86,7 +111,13 @@ impl Block {
         self
     }
 
-    pub fn block_size(&self) -> BlockSize {
+    pub fn into_string(&self) -> String {
+        self.iter().map(|byte_value| *byte_value as char).collect()
+    }
+}
+
+impl BlockSizeTrait for Block {
+    fn block_size(&self) -> BlockSize {
         BlockSize::from(self)
     }
 }

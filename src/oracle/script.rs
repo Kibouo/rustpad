@@ -2,7 +2,7 @@ use std::{path::PathBuf, process::Command};
 
 use anyhow::{anyhow, Context, Result};
 
-use crate::block::block_question::BlockQuestion;
+use crate::cypher_text::Encode;
 
 use super::{oracle_location::OracleLocation, Oracle};
 
@@ -10,8 +10,8 @@ pub struct ScriptOracle {
     path: PathBuf,
 }
 
-impl Oracle for ScriptOracle {
-    fn visit(oracle_location: &OracleLocation) -> Result<Self> {
+impl ScriptOracle {
+    pub fn visit(oracle_location: &OracleLocation) -> Result<Self> {
         let path = match oracle_location {
             OracleLocation::Script(path) => path,
             OracleLocation::Web(_) => {
@@ -19,12 +19,15 @@ impl Oracle for ScriptOracle {
             }
         };
 
-        Ok(Self {
+        let oracle = Self {
             path: path.to_path_buf(),
-        })
+        };
+        Ok(oracle)
     }
+}
 
-    fn ask_validation(&self, cypher_text: &BlockQuestion) -> Result<bool> {
+impl Oracle for ScriptOracle {
+    fn ask_validation<'a>(&self, cypher_text: &'a impl Encode<'a>) -> Result<bool> {
         let status = Command::new("/bin/sh")
             .arg("-c")
             .arg(format!(
