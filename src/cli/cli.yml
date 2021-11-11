@@ -22,7 +22,7 @@ args:
         index: 1
     - cypher_text:
         help: Original cypher text
-        long_help: Original cypher text received from the target application
+        long_help: Original cypher text received from the target service
         aliases: ctext
         short: ct
         takes_value: true
@@ -38,7 +38,8 @@ args:
         global: true
 subcommands:
     - web:
-        about: "Question a web-based oracle. Cypher text's location must be indicated (see `--keyword`)!"
+        about: Question a web-based oracle
+        after_help: Indicate the cypher text's location! See `--keyword` for clarification.
         display_order: 1
         short_flag: W
         long_flag: web
@@ -48,7 +49,7 @@ subcommands:
             - ColoredHelp
         args:
             - data:
-                help: Data for a POST request
+                help: Data to send in a POST request
                 short: d
                 long: data
                 takes_value: true
@@ -78,7 +79,8 @@ subcommands:
                 takes_value: true
 
     - script:
-        about: Question a script-based oracle. Script must respond with exit code 0 for correct padding, and any other code otherwise. Cypher text is passed as the 1st argument
+        about: Question a script-based oracle
+        after_help: Script must respond with exit code 0 for correct padding, and any other code otherwise. Cypher text is passed as the 1st argument.
         display_order: 2
         short_flag: S
         long_flag: script

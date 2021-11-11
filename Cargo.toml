@@ -6,7 +6,7 @@ authors = ["Csonka Mihaly <csonka.mihaly@hotmail.com>"]
 edition = "2021"
 
 [dependencies]
-clap = {version = "2.33", features = ["yaml", "color"]}
+clap = {version = "2.33", default-features = true, features = ["yaml", "wrap_help"] }
 reqwest = "0.11"
 anyhow = "1.0"
 base64 = "0.13"
