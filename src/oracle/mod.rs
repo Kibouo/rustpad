@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::cypher_text::encode::Encode;
+use crate::{cli::SubOptions, cypher_text::encode::Encode};
 
 use self::oracle_location::OracleLocation;
 
@@ -10,7 +10,7 @@ pub mod web;
 
 pub trait Oracle: Sync {
     /// Constructor
-    fn visit(oracle_location: &OracleLocation) -> Result<Self>
+    fn visit(oracle_location: &OracleLocation, oracle_options: &SubOptions) -> Result<Self>
     where
         Self: Sized;
 

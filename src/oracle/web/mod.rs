@@ -1,0 +1,245 @@
+pub mod calibrate_web;
+
+use std::{collections::HashMap, str::FromStr};
+
+use anyhow::{anyhow, Context, Result};
+use reqwest::{
+    blocking::{Client, ClientBuilder},
+    header::{HeaderMap, HeaderName, HeaderValue},
+    redirect::Policy,
+    Url,
+};
+
+use crate::{
+    cli::{SubOptions, WebOptions},
+    cypher_text::encode::Encode,
+};
+
+use super::{oracle_location::OracleLocation, Oracle};
+
+pub struct WebOracle {
+    url: Url,
+    options: WebOptions,
+    web_client: Client,
+    keyword_locations: Vec<KeywordLocation>,
+}
+
+impl Oracle for WebOracle {
+    fn visit(oracle_location: &OracleLocation, oracle_options: &SubOptions) -> Result<Self> {
+        let url = match oracle_location {
+            OracleLocation::Web(url) => url,
+            OracleLocation::Script(_) => {
+                return Err(anyhow!("Tried to visit the web oracle using a file path!"));
+            }
+        };
+
+        let options = match oracle_options {
+            SubOptions::Web(options) => options,
+            SubOptions::Script(_) => {
+                return Err(anyhow!(
+                    "Tried to visit the web oracle using script options!"
+                ));
+            }
+        };
+
+        let keyword_locations = keyword_location(url, options);
+        if keyword_locations.is_empty() {
+            return Err(anyhow!(
+                "Keyword not found in URL, headers, or POST data. See `--keyword` for further info"
+            ));
+        }
+
+        let mut client_builder =
+            ClientBuilder::new().danger_accept_invalid_certs(options.insecure());
+        if !options.redirect() {
+            client_builder = client_builder.redirect(Policy::none());
+        }
+
+        let web_client = client_builder
+            .build()
+            .context("Failed to setup web client")?;
+
+        let oracle = Self {
+            url: url.to_owned(),
+            options: options.clone(),
+            web_client,
+            keyword_locations,
+        };
+        Ok(oracle)
+    }
+
+    fn ask_validation<'a>(&self, cypher_text: &'a impl Encode<'a>) -> Result<bool> {
+        let (url, data, headers) = replace_keyword_occurrences(
+            &self.url,
+            &self.options,
+            self.keyword_locations.iter(),
+            &cypher_text.encode(),
+        )
+        .context("Failed to replace all occurrences of the keyword")?;
+
+        let request = if self.options.post_data().is_none() {
+            self.web_client.get(url)
+        } else {
+            self.web_client.post(url)
+        };
+        let request = request.headers(headers);
+        let request = match data {
+            Some(data) => request.body(data),
+            None => request,
+        };
+
+        let response = request.send().context("Failed to send request")?;
+
+        // Ok(response != self.correct_padding_response)
+        todo!()
+    }
+
+    fn location(&self) -> OracleLocation {
+        OracleLocation::Web(self.url.clone())
+    }
+}
+
+enum KeywordLocation {
+    Url,
+    PostData,
+    Headers(HashMap<usize, HeaderWithKeyword>),
+}
+
+struct HeaderWithKeyword {
+    keyword_in_name: bool,
+    keyword_in_value: bool,
+}
+
+fn replace_keyword_occurrences<'a>(
+    url: &Url,
+    options: &WebOptions,
+    keyword_locations: impl Iterator<Item = &'a KeywordLocation>,
+    encoded_cypher_text: &str,
+) -> Result<(Url, Option<String>, HeaderMap)> {
+    let mut url = url.clone();
+    let mut data = options.post_data().clone();
+    let mut headers = None;
+
+    for location in keyword_locations {
+        match location {
+            KeywordLocation::Url => {
+                url = Url::parse(&url
+                    .to_string()
+                    .replace(options.keyword(), encoded_cypher_text)).expect("Target URL, which parsed correctly initially, doesn't parse any more after replacing the keyword");
+            }
+            KeywordLocation::PostData => {
+                data = Some(
+                    data.as_deref()
+                        .expect(
+                            "The keyword was found in the POST data, yet no POST data exists...",
+                        )
+                        .replace(options.keyword(), encoded_cypher_text),
+                );
+            }
+            KeywordLocation::Headers(headers_with_keyword) => {
+                headers = Some(
+                    replace_keyword_in_headers(options, headers_with_keyword, encoded_cypher_text)
+                        .context("Failed to parse headers")?,
+                );
+            }
+        }
+    }
+
+    // maybe there are no headers to replace, in which case the `HeaderMap` hasn't been constructed. Do it now
+    if headers.is_none() {
+        headers = Some(
+            replace_keyword_in_headers(options, &HashMap::new(), encoded_cypher_text)
+                .context("Failed to parse headers")?,
+        );
+    }
+
+    Ok((
+        url,
+         data,
+         headers.expect("HeaderMap should have been constructed even if no replacement in the headers is required")))
+}
+
+fn replace_keyword_in_headers(
+    options: &WebOptions,
+    headers_with_keyword: &HashMap<usize, HeaderWithKeyword>,
+    encoded_cypher_text: &str,
+) -> Result<HeaderMap> {
+    options
+        .headers()
+        .iter()
+        .enumerate()
+        .map(|(idx, (name, value))| {
+            // check if this header contains the keyword
+            let (header_name, header_value) = match headers_with_keyword.get(&idx) {
+                // do `HeaderName/HeaderValue::from_str` right away so we can prevent some `clone`s
+                Some(replace_location) => {
+                    // replace if needed
+                    let resulting_name = if replace_location.keyword_in_name {
+                        HeaderName::from_str(&name.replace(options.keyword(), encoded_cypher_text))
+                    } else {
+                        HeaderName::from_str(name)
+                    };
+
+                    let resulting_value = if replace_location.keyword_in_value {
+                        HeaderValue::from_str(
+                            &value.replace(options.keyword(), encoded_cypher_text),
+                        )
+                    } else {
+                        HeaderValue::from_str(value)
+                    };
+
+                    (resulting_name, resulting_value)
+                }
+                None => (HeaderName::from_str(name), HeaderValue::from_str(value)),
+            };
+
+            Ok((
+                header_name.context(format!("Invalid header name: {}", name))?,
+                header_value.context(format!("Invalid header value: {}", value))?,
+            ))
+        })
+        .collect::<Result<_>>()
+}
+
+/// Try to indicate where the keyword is as precisely as possible. This is to prevent unneeded `.replace`s on every value, every time a request is made
+fn keyword_location(url: &Url, options: &WebOptions) -> Vec<KeywordLocation> {
+    let mut keyword_locations = Vec::new();
+
+    if url.to_string().contains(options.keyword()) {
+        keyword_locations.push(KeywordLocation::Url);
+    }
+
+    if options
+        .post_data()
+        .as_deref()
+        .unwrap_or_default()
+        .contains(options.keyword())
+    {
+        keyword_locations.push(KeywordLocation::PostData);
+    }
+
+    let headers_with_keyword = options
+        .headers()
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, (name, value))| {
+            let keyword_in_name = name.contains(options.keyword());
+            let keyword_in_value = value.contains(options.keyword());
+
+            if keyword_in_name || keyword_in_value {
+                Some((
+                    idx,
+                    HeaderWithKeyword {
+                        keyword_in_name,
+                        keyword_in_value,
+                    },
+                ))
+            } else {
+                None
+            }
+        })
+        .collect();
+    keyword_locations.push(KeywordLocation::Headers(headers_with_keyword));
+
+    keyword_locations
+}

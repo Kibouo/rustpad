@@ -1,13 +1,7 @@
 pub mod block_size_option;
 
-use std::str::FromStr;
-
 use anyhow::{Context, Result};
 use clap::{load_yaml, App, ArgMatches};
-use reqwest::{
-    header::{HeaderMap, HeaderName, HeaderValue},
-    Body,
-};
 
 use crate::oracle::oracle_location::OracleLocation;
 
@@ -30,16 +24,16 @@ pub enum SubOptions {
     Script(ScriptOptions),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct WebOptions {
-    post_data: Option<Body>,
-    headers: HeaderMap,
+    post_data: Option<String>,
+    headers: Vec<(String, String)>,
     redirect: bool,
     insecure: bool,
     keyword: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ScriptOptions {}
 
 impl Options {
@@ -100,6 +94,28 @@ impl Options {
     }
 }
 
+impl WebOptions {
+    pub fn post_data(&self) -> &Option<String> {
+        &self.post_data
+    }
+
+    pub fn headers(&self) -> &Vec<(String, String)> {
+        &self.headers
+    }
+
+    pub fn redirect(&self) -> bool {
+        self.redirect
+    }
+
+    pub fn insecure(&self) -> bool {
+        self.insecure
+    }
+
+    pub fn keyword(&self) -> &String {
+        &self.keyword
+    }
+}
+
 fn parse_as_web(
     oracle_location: &str,
     cypher_text: &str,
@@ -107,32 +123,21 @@ fn parse_as_web(
     sub_command: &str,
     args: &ArgMatches,
 ) -> Result<Options> {
-    fn parse_headers<'a>(
+    fn split_headers<'a>(
         headers: impl IntoIterator<Item = &'a str>,
-        keyword: &str,
-        cypher_text: &str,
-    ) -> Result<HeaderMap> {
-        let parsed_headers = headers
+    ) -> Result<Vec<(String, String)>> {
+        headers
             .into_iter()
-            .map(|header| -> Result<(HeaderName, HeaderValue)> {
-                let header = header.replace(keyword, cypher_text);
-                let split_header = header.split_once(':');
-                let split_header = split_header.context(format!(
+            .map(|header| -> Result<(String, String)> {
+                let split_header = header
+                    .split_once(':')
+                    .map(|(l, r)| (l.to_owned(), r.to_owned()));
+                split_header.context(format!(
                     "Invalid header format! Expected 'HeaderName: HeaderValue', got '{}'.",
                     header
-                ))?;
-
-                let split_header = (
-                    HeaderName::from_str(split_header.0)
-                        .context(format!("Invalid header name: {}", split_header.0))?,
-                    HeaderValue::from_str(split_header.1.trim())
-                        .context(format!("Invalid header value: {}", split_header.1))?,
-                );
-                Ok(split_header)
+                ))
             })
-            .collect::<Result<Vec<(HeaderName, HeaderValue)>>>()?;
-
-        Ok(HeaderMap::from_iter(parsed_headers))
+            .collect::<Result<Vec<_>>>()
     }
 
     let keyword = args
@@ -140,12 +145,10 @@ fn parse_as_web(
         .expect("No default value for argument `keyword`");
 
     let web_options = WebOptions {
-        post_data: args
-            .value_of("data")
-            .map(|data| data.replace(keyword, cypher_text).into()),
+        post_data: args.value_of("data").map(|d| d.to_owned()),
         headers: match args.values_of("header") {
-            Some(headers) => parse_headers(headers, keyword, cypher_text)?,
-            None => HeaderMap::new(),
+            Some(headers) => split_headers(headers)?,
+            None => Vec::new(),
         },
         redirect: args.value_of("redirect").is_some(),
         insecure: args.value_of("insecure").is_some(),
@@ -153,10 +156,7 @@ fn parse_as_web(
     };
 
     Ok(Options {
-        oracle_location: OracleLocation::new(
-            &oracle_location.replace(keyword, cypher_text)[..],
-            sub_command,
-        )?,
+        oracle_location: OracleLocation::new(oracle_location, sub_command)?,
         cypher_text: cypher_text.to_string(),
         block_size,
         sub_options: SubOptions::Web(web_options),
@@ -168,7 +168,7 @@ fn parse_as_script(
     cypher_text: &str,
     block_size: BlockSizeOption,
     sub_command: &str,
-    _sub_command_args: &ArgMatches,
+    _args: &ArgMatches,
 ) -> Result<Options> {
     Ok(Options {
         oracle_location: OracleLocation::new(oracle_location, sub_command)?,

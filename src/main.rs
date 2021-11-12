@@ -10,11 +10,17 @@ use crate::{
     block::block_size::BlockSize,
     cli::{block_size_option::BlockSizeOption, Options},
     cypher_text::CypherText,
-    oracle::{oracle_location::OracleLocation, script::ScriptOracle, web::WebOracle, Oracle},
+    oracle::{
+        oracle_location::OracleLocation,
+        script::ScriptOracle,
+        web::{calibrate_web::CalibrationWebOracle, WebOracle},
+        Oracle,
+    },
     questioning::Questioning,
 };
 
 fn main() -> Result<()> {
+    // TODO: rename to config to prevent confusion with std::option
     let options = Options::parse()?;
 
     let cypher_text = match options.block_size() {
@@ -25,11 +31,15 @@ fn main() -> Result<()> {
 
     let decoded = match options.oracle_location() {
         OracleLocation::Web(_) => {
-            let oracle = WebOracle::visit(options.oracle_location())?;
-            Questioning::prepare(&cypher_text)?.start(oracle)?
+            let oracle = WebOracle::visit(options.oracle_location(), options.sub_options())?;
+            let calibration_oracle =
+                CalibrationWebOracle::visit(options.oracle_location(), options.sub_options())?;
+            Questioning::prepare(&cypher_text)?
+                .calibrate_web_oracle(calibration_oracle)?
+                .start(oracle)?
         }
         OracleLocation::Script(_) => {
-            let oracle = ScriptOracle::visit(options.oracle_location())?;
+            let oracle = ScriptOracle::visit(options.oracle_location(), options.sub_options())?;
             Questioning::prepare(&cypher_text)?.start(oracle)?
         }
     };
