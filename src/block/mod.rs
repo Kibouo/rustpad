@@ -1,6 +1,9 @@
 pub mod block_size;
 
-use std::ops::{BitXor, Deref, DerefMut};
+use std::{
+    fmt::Display,
+    ops::{BitXor, Deref, DerefMut},
+};
 
 use anyhow::{anyhow, Result};
 
@@ -110,9 +113,18 @@ impl Block {
         }
         self
     }
+}
 
-    pub fn into_string(&self) -> String {
-        self.iter().map(|byte_value| *byte_value as char).collect()
+impl Display for Block {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.iter()
+                .map(|byte_value| *byte_value as char)
+                .map(|c| if c.is_ascii_control() { '.' } else { c })
+                .collect::<String>()
+        )
     }
 }
 

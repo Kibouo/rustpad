@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::cypher_text::Encode;
+use crate::cypher_text::encode::Encode;
 
 use self::oracle_location::OracleLocation;
 
@@ -9,6 +9,11 @@ pub mod script;
 pub mod web;
 
 pub trait Oracle: Sync {
+    /// Constructor
+    fn visit(oracle_location: &OracleLocation) -> Result<Self>
+    where
+        Self: Sized;
+
     /// Ask endpoint to verify cypher text
     fn ask_validation<'a>(&self, cypher_text: &'a impl Encode<'a>) -> Result<bool>;
 

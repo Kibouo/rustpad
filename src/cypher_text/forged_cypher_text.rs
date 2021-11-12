@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 
 use crate::block::block_size::{BlockSize, BlockSizeTrait};
 
-use super::{cypher_text::CypherText, AmountBlocksTrait, Block, Encode, Encoding};
+use super::{AmountBlocksTrait, Block, CypherText, Encode, Encoding};
 
 #[derive(Debug, Clone)]
 pub struct ForgedCypherText<'a> {
@@ -100,7 +100,7 @@ impl<'a> ForgedCypherText<'a> {
         let plaintext = &intermediate ^ self.original_tweakable_block();
         let plaintext = plaintext?;
 
-        Ok(plaintext.into_string())
+        Ok(plaintext.to_string())
     }
 
     fn is_answered(&self) -> bool {
@@ -114,6 +114,32 @@ impl<'a> ForgedCypherText<'a> {
 
 impl<'a> Encode<'a> for ForgedCypherText<'a> {
     type Blocks = &'a [Block];
+
+    fn encode(&'a self) -> String {
+        let prefix_blocks = &self.blocks()[..self.amount_blocks() - 2];
+        let to_decrypt_block = &self.blocks()[self.amount_blocks() - 1];
+
+        let raw_bytes: Vec<u8> = prefix_blocks.iter()
+            .chain([&self.tweakable_block_wip].into_iter())
+            .chain([to_decrypt_block].into_iter())
+            .map(|block| &**block)
+            .flatten()
+            // blocks are scattered through memory, gotta collect them
+            .cloned()
+            .collect();
+
+        let encoded_data = match self.used_encoding() {
+            Encoding::Base64 => base64::encode_config(raw_bytes, base64::STANDARD),
+            Encoding::Base64Web => base64::encode_config(raw_bytes, base64::URL_SAFE),
+            Encoding::Hex => hex::encode(raw_bytes),
+        };
+
+        if self.url_encoded() {
+            urlencoding::encode(&encoded_data).to_string()
+        } else {
+            encoded_data
+        }
+    }
 
     fn blocks(&'a self) -> Self::Blocks {
         self.original_blocks

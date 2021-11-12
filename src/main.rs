@@ -9,7 +9,8 @@ use anyhow::Result;
 use crate::{
     block::block_size::BlockSize,
     cli::{block_size_option::BlockSizeOption, Options},
-    cypher_text::cypher_text::CypherText,
+    cypher_text::CypherText,
+    oracle::{oracle_location::OracleLocation, script::ScriptOracle, web::WebOracle, Oracle},
     questioning::Questioning,
 };
 
@@ -22,8 +23,18 @@ fn main() -> Result<()> {
         BlockSizeOption::Auto => todo!(),
     };
 
-    let question = Questioning::prepare(cypher_text)?.start(options.oracle_location())?;
-    eprintln!("question = {:#?}", question);
+    let decoded = match options.oracle_location() {
+        OracleLocation::Web(_) => {
+            let oracle = WebOracle::visit(options.oracle_location())?;
+            Questioning::prepare(&cypher_text)?.start(oracle)?
+        }
+        OracleLocation::Script(_) => {
+            let oracle = ScriptOracle::visit(options.oracle_location())?;
+            Questioning::prepare(&cypher_text)?.start(oracle)?
+        }
+    };
+
+    eprintln!("decoded = {:#?}", decoded);
 
     Ok(())
 }
