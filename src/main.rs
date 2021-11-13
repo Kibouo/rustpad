@@ -3,11 +3,15 @@ mod config;
 mod cypher_text;
 mod oracle;
 mod questioning;
+mod tui;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 
 use crate::{
-    block::block_size::BlockSize,
+    block::{
+        block_size::{BlockSize, BlockSizeTrait},
+        Block,
+    },
     config::{block_size_option::BlockSizeOption, Config, SubConfig},
     cypher_text::CypherText,
     oracle::{
@@ -17,10 +21,16 @@ use crate::{
         Oracle,
     },
     questioning::Questioning,
+    tui::Tui,
 };
 
 fn main() -> Result<()> {
     let mut config = Config::parse()?;
+    // TODO: pass proper block size
+    let mut tui = Tui::new(BlockSize::Eight).context("Failed to create terminal user interface")?;
+
+    tui.setup()?;
+    todo!();
 
     let cypher_text = match config.block_size() {
         BlockSizeOption::Eight => CypherText::parse(config.cypher_text(), &BlockSize::Eight)?,
@@ -30,7 +40,7 @@ fn main() -> Result<()> {
 
     let decoded = match config.oracle_location() {
         OracleLocation::Web(_) => {
-            let mut questioning = Questioning::prepare(&cypher_text)?;
+            let mut questioning = Questioning::prepare(tui, &cypher_text)?;
 
             let calibration_oracle =
                 CalibrationWebOracle::visit(config.oracle_location(), config.sub_config())?;
@@ -45,7 +55,7 @@ fn main() -> Result<()> {
         }
         OracleLocation::Script(_) => {
             let oracle = ScriptOracle::visit(config.oracle_location(), config.sub_config())?;
-            Questioning::prepare(&cypher_text)?.start(oracle)?
+            Questioning::prepare(tui, &cypher_text)?.start(oracle)?
         }
     };
 

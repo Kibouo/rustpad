@@ -10,21 +10,23 @@ use crate::{
     cypher_text::{encode::AmountBlocksTrait, forged_cypher_text::ForgedCypherText, CypherText},
     oracle::{web::calibrate_web::CalibrationWebOracle, Oracle},
     questioning::calibration_response::CalibrationResponse,
+    tui::Tui,
 };
 
 /// Manages the oracle attack on a high level.
 pub struct Questioning<'a> {
     forged_cypher_texts: Vec<ForgedCypherText<'a>>,
+    tui: Tui,
 }
 
 impl<'a> Questioning<'a> {
     /// Divides the cypher text into a modifiable part for each block.
-    pub fn prepare(cypher_text: &'a CypherText) -> Result<Self> {
+    pub fn prepare(tui: Tui, cypher_text: &'a CypherText) -> Result<Self> {
         // all blocks, except the 0-th which is the IV, are to be decrypted.
         // This could change with a "noiv" option
         let blocks_to_skip = 1;
 
-        // decryption is based on recognizing padding. Padding is only at the end of a message. So to decrypt the n-th block, all blocks after it have to be dropped and the "n - 1"-th block must be tweaked.
+        // decryption is based on recognizing padding. Padding is only at the end of a message. So to decrypt the n-th block, all blocks after it have to be dropped and the "n - 1"-th block must be forged.
         let mut forged_cypher_texts =
             Vec::with_capacity(cypher_text.amount_blocks() - blocks_to_skip);
         for block_to_decrypt_idx in blocks_to_skip..cypher_text.amount_blocks() {
@@ -36,6 +38,7 @@ impl<'a> Questioning<'a> {
 
         Ok(Self {
             forged_cypher_texts,
+            tui,
         })
     }
 
@@ -64,7 +67,7 @@ impl<'a> Questioning<'a> {
                                 Err(anyhow::anyhow!(
                                     "Invalid padding for byte {} with block layout {:?}",
                                     *forged_cypher_text.block_size() - bytes_answered,
-                                    forged_cypher_text.tweakable_block_wip()
+                                    forged_cypher_text.forged_block_wip()
                                 ))
                             }
                         })

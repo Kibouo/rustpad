@@ -1,3 +1,4 @@
+// TODO: deprecate this & make positional args required flags
 #[derive(Debug)]
 pub enum BlockSizeOption {
     Eight,

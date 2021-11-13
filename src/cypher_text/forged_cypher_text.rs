@@ -11,8 +11,8 @@ pub struct ForgedCypherText<'a> {
     used_encoding: Encoding,
 
     current_byte_idx: Option<u8>,
-    tweakable_block_wip: Block,
-    tweakable_block_solution: Block,
+    forged_block_wip: Block,
+    forged_block_solution: Block,
 }
 
 impl<'a> ForgedCypherText<'a> {
@@ -36,8 +36,8 @@ impl<'a> ForgedCypherText<'a> {
             url_encoded: cypher_text.url_encoded(),
             used_encoding: cypher_text.used_encoding(),
             current_byte_idx: Some(*block_size - 1),
-            tweakable_block_wip: Block::new(&cypher_text.block_size()),
-            tweakable_block_solution: Block::new(&cypher_text.block_size()),
+            forged_block_wip: Block::new(&cypher_text.block_size()),
+            forged_block_solution: Block::new(&cypher_text.block_size()),
         };
 
         Ok(forged_cypher_text)
@@ -48,8 +48,7 @@ impl<'a> ForgedCypherText<'a> {
             .current_byte_idx
             .ok_or_else(|| anyhow!("Can't change bytes after they're all locked"))?;
 
-        self.tweakable_block_wip
-            .set_byte(byte_idx as usize, value)?;
+        self.forged_block_wip.set_byte(byte_idx as usize, value)?;
 
         Ok(self)
     }
@@ -59,8 +58,7 @@ impl<'a> ForgedCypherText<'a> {
         match self.current_byte_idx {
             Some(idx) => {
                 // locking a byte means it's supposedly correct. Because it gets adjusted, see below, we gotta save the solution
-                self.tweakable_block_solution[idx as usize] =
-                    self.tweakable_block_wip[idx as usize];
+                self.forged_block_solution[idx as usize] = self.forged_block_wip[idx as usize];
 
                 if idx == 0 {
                     self.current_byte_idx = None;
@@ -69,35 +67,35 @@ impl<'a> ForgedCypherText<'a> {
 
                     // PKCS5/7 padding's value is the same as its length. So the desired padding when testing for the last byte is 0x01. But when testing the 2nd last byte, the last byte must be 0x02. This means that when moving on to the next byte (right to left), all of the previous bytes' solutions must be adjusted.
                     let block_size = *self.block_size();
-                    self.tweakable_block_wip
+                    self.forged_block_wip
                         .adjust_for_incremented_padding(block_size - (idx - 1));
                 }
 
                 Ok(self)
             }
             None => Err(anyhow!(
-                "Already locked all bytes! Current tweakable block layout: {:?}",
-                self.tweakable_block_wip
+                "Already locked all bytes! Current forged block layout: {:?}",
+                self.forged_block_wip
             )),
         }
     }
 
-    pub fn tweakable_block_wip(&self) -> &Block {
-        &self.tweakable_block_wip
+    pub fn forged_block_wip(&self) -> &Block {
+        &self.forged_block_wip
     }
 
     pub fn plaintext_block_solution(&self) -> Result<String> {
         if !self.is_answered() {
             return Err(anyhow!(
-                "Can't compute plaintext. Not all bytes of the tweakable block were locked"
+                "Can't compute plaintext. Not all bytes of the forged block were locked"
             ));
         }
 
         let intermediate =
-            &self.tweakable_block_solution ^ &Block::new_incremental_padding(&self.block_size());
+            &self.forged_block_solution ^ &Block::new_incremental_padding(&self.block_size());
         let intermediate = intermediate?;
 
-        let plaintext = &intermediate ^ self.original_tweakable_block();
+        let plaintext = &intermediate ^ self.original_forged_block();
         let plaintext = plaintext?;
 
         Ok(plaintext.to_string())
@@ -107,7 +105,7 @@ impl<'a> ForgedCypherText<'a> {
         self.current_byte_idx.is_none()
     }
 
-    fn original_tweakable_block(&self) -> &Block {
+    fn original_forged_block(&self) -> &Block {
         &self.original_blocks[self.amount_blocks() - 2]
     }
 }
@@ -120,7 +118,7 @@ impl<'a> Encode<'a> for ForgedCypherText<'a> {
         let to_decrypt_block = &self.blocks()[self.amount_blocks() - 1];
 
         let raw_bytes: Vec<u8> = prefix_blocks.iter()
-            .chain([&self.tweakable_block_wip].into_iter())
+            .chain([&self.forged_block_wip].into_iter())
             .chain([to_decrypt_block].into_iter())
             .map(|block| &**block)
             .flatten()
