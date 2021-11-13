@@ -64,7 +64,7 @@ impl<'a> Questioning<'a> {
                                 Err(anyhow::anyhow!(
                                     "Invalid padding for byte {} with block layout {:?}",
                                     *forged_cypher_text.block_size() - bytes_answered,
-                                    forged_cypher_text.tweakable_block_solution()
+                                    forged_cypher_text.tweakable_block_wip()
                                 ))
                             }
                         })
@@ -78,6 +78,7 @@ impl<'a> Questioning<'a> {
                                 &mut current_solution.context(format!("Failed to decrypt block {}", current_block_idx))?
                             );
                         }
+                        // TODO: auto-retry or ask user. Also, don't crash but return whatever we already had
                         None => unreachable!("A solution for the current byte should exist at this point. We tried all possible byte values")
                     }
                 }

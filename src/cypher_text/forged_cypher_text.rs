@@ -58,9 +58,6 @@ impl<'a> ForgedCypherText<'a> {
     pub fn lock_byte(&mut self) -> Result<&mut Self> {
         match self.current_byte_idx {
             Some(idx) => {
-                // TODO: remove
-                eprintln!("finished byte {:#?}", idx);
-
                 // locking a byte means it's supposedly correct. Because it gets adjusted, see below, we gotta save the solution
                 self.tweakable_block_solution[idx as usize] =
                     self.tweakable_block_wip[idx as usize];
@@ -85,8 +82,8 @@ impl<'a> ForgedCypherText<'a> {
         }
     }
 
-    pub fn tweakable_block_solution(&self) -> &Block {
-        &self.tweakable_block_solution
+    pub fn tweakable_block_wip(&self) -> &Block {
+        &self.tweakable_block_wip
     }
 
     pub fn plaintext_block_solution(&self) -> Result<String> {
