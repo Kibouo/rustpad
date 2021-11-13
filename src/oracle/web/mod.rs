@@ -13,6 +13,7 @@ use reqwest::{
 use crate::{
     cli::{SubOptions, WebOptions},
     cypher_text::encode::Encode,
+    questioning::calibration_response::CalibrationResponse,
 };
 
 use super::{oracle_location::OracleLocation, Oracle};
@@ -89,9 +90,11 @@ impl Oracle for WebOracle {
         };
 
         let response = request.send().context("Failed to send request")?;
+        let response = CalibrationResponse::from_response(response, self.options.consider_body())?;
 
-        // Ok(response != self.correct_padding_response)
-        todo!()
+        let padding_error_response = self.options.padding_error_response().as_ref().ok_or_else(|| anyhow!("Web oracle was not calibrated. We don't know how an (in)correct padding response looks like"))?;
+
+        Ok(response != *padding_error_response)
     }
 
     fn location(&self) -> OracleLocation {
@@ -99,12 +102,14 @@ impl Oracle for WebOracle {
     }
 }
 
+#[derive(Debug)]
 enum KeywordLocation {
     Url,
     PostData,
     Headers(HashMap<usize, HeaderWithKeyword>),
 }
 
+#[derive(Debug)]
 struct HeaderWithKeyword {
     keyword_in_name: bool,
     keyword_in_value: bool,
@@ -203,7 +208,7 @@ fn replace_keyword_in_headers(
 
 /// Try to indicate where the keyword is as precisely as possible. This is to prevent unneeded `.replace`s on every value, every time a request is made
 fn keyword_location(url: &Url, options: &WebOptions) -> Vec<KeywordLocation> {
-    let mut keyword_locations = Vec::new();
+    let mut keyword_locations = Vec::with_capacity(3);
 
     if url.to_string().contains(options.keyword()) {
         keyword_locations.push(KeywordLocation::Url);
@@ -238,8 +243,10 @@ fn keyword_location(url: &Url, options: &WebOptions) -> Vec<KeywordLocation> {
                 None
             }
         })
-        .collect();
-    keyword_locations.push(KeywordLocation::Headers(headers_with_keyword));
+        .collect::<HashMap<_, _>>();
+    if !headers_with_keyword.is_empty() {
+        keyword_locations.push(KeywordLocation::Headers(headers_with_keyword));
+    }
 
     keyword_locations
 }

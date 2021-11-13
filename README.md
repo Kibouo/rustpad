@@ -1,5 +1,6 @@
 # TODO:
-- check for keyword
+- smarter URL parsing
+- add user agent
 - specify/calc amount threads
 - specify encoding
 - noiv option (cypher text doesn't include IV)

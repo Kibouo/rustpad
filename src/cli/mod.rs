@@ -3,7 +3,9 @@ pub mod block_size_option;
 use anyhow::{Context, Result};
 use clap::{load_yaml, App, ArgMatches};
 
-use crate::oracle::oracle_location::OracleLocation;
+use crate::{
+    oracle::oracle_location::OracleLocation, questioning::calibration_response::CalibrationResponse,
+};
 
 use self::block_size_option::BlockSizeOption;
 
@@ -26,11 +28,18 @@ pub enum SubOptions {
 
 #[derive(Debug, Clone)]
 pub struct WebOptions {
+    // arguments
     post_data: Option<String>,
     headers: Vec<(String, String)>,
+    keyword: String,
+
+    // flags
     redirect: bool,
     insecure: bool,
-    keyword: String,
+    consider_body: bool,
+
+    // config to be filled out later
+    padding_error_response: Option<CalibrationResponse>,
 }
 
 #[derive(Debug, Clone)]
@@ -92,27 +101,41 @@ impl Options {
     pub fn sub_options(&self) -> &SubOptions {
         &self.sub_options
     }
+
+    pub fn sub_options_mut(&mut self) -> &mut SubOptions {
+        &mut self.sub_options
+    }
 }
 
 impl WebOptions {
     pub fn post_data(&self) -> &Option<String> {
         &self.post_data
     }
-
     pub fn headers(&self) -> &Vec<(String, String)> {
         &self.headers
     }
-
+    pub fn keyword(&self) -> &String {
+        &self.keyword
+    }
     pub fn redirect(&self) -> bool {
         self.redirect
     }
-
     pub fn insecure(&self) -> bool {
         self.insecure
     }
+    pub fn consider_body(&self) -> bool {
+        self.consider_body
+    }
+    pub fn padding_error_response(&self) -> &Option<CalibrationResponse> {
+        &self.padding_error_response
+    }
 
-    pub fn keyword(&self) -> &String {
-        &self.keyword
+    pub fn save_padding_error_response(
+        &mut self,
+        padding_error_response: CalibrationResponse,
+    ) -> &mut Self {
+        self.padding_error_response = Some(padding_error_response);
+        self
     }
 }
 
@@ -150,9 +173,13 @@ fn parse_as_web(
             Some(headers) => split_headers(headers)?,
             None => Vec::new(),
         },
+        keyword: keyword.into(),
+
         redirect: args.value_of("redirect").is_some(),
         insecure: args.value_of("insecure").is_some(),
-        keyword: keyword.into(),
+        consider_body: args.value_of("consider_body").is_some(),
+
+        padding_error_response: None,
     };
 
     Ok(Options {

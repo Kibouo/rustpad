@@ -77,6 +77,12 @@ subcommands:
                 long: keyword
                 default_value: CTEXT
                 takes_value: true
+            - consider_body:
+                help: Consider the body during calibration
+                long_help: Consider the response body and content length when determining how the web oracle responds to (in)correct padding
+                short: body
+                long: consider_body
+                takes_value: false
 
     - script:
         about: Question a script-based oracle

@@ -88,4 +88,8 @@ impl CalibrationWebOracle {
 
         request.send().context("Failed to send request")
     }
+
+    pub fn options(&self) -> &WebOptions {
+        &self.options
+    }
 }

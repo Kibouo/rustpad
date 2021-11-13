@@ -14,7 +14,7 @@ pub trait Oracle: Sync {
     where
         Self: Sized;
 
-    /// Ask endpoint to verify cypher text
+    /// Ask endpoint to verify cypher text. Return true if padding is valid.
     fn ask_validation<'a>(&self, cypher_text: &'a impl Encode<'a>) -> Result<bool>;
 
     fn location(&self) -> OracleLocation;

