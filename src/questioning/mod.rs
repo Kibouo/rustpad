@@ -103,7 +103,7 @@ impl<'a> Questioning<'a> {
 
                 forged_cypher_text.set_current_byte(byte_value)?;
                 let response = oracle.ask_validation(&forged_cypher_text)?;
-                CalibrationResponse::from_response(response, oracle.options().consider_body())
+                CalibrationResponse::from_response(response, oracle.config().consider_body())
             })
             .collect::<Result<Vec<_>>>()
             .context("Failed to request web server for calibration")?;

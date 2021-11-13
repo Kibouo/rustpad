@@ -3,7 +3,7 @@ use std::{path::PathBuf, process::Command};
 use anyhow::{anyhow, Context, Result};
 
 use crate::{
-    cli::{ScriptOptions, SubOptions},
+    config::{ScriptConfig, SubConfig},
     cypher_text::encode::Encode,
 };
 
@@ -11,11 +11,11 @@ use super::{oracle_location::OracleLocation, Oracle};
 
 pub struct ScriptOracle {
     path: PathBuf,
-    _options: ScriptOptions,
+    _config: ScriptConfig,
 }
 
 impl Oracle for ScriptOracle {
-    fn visit(oracle_location: &OracleLocation, oracle_options: &SubOptions) -> Result<Self> {
+    fn visit(oracle_location: &OracleLocation, oracle_config: &SubConfig) -> Result<Self> {
         let path = match oracle_location {
             OracleLocation::Script(path) => path,
             OracleLocation::Web(_) => {
@@ -23,18 +23,18 @@ impl Oracle for ScriptOracle {
             }
         };
 
-        let options = match oracle_options {
-            SubOptions::Script(options) => options,
-            SubOptions::Web(_) => {
+        let config = match oracle_config {
+            SubConfig::Script(config) => config,
+            SubConfig::Web(_) => {
                 return Err(anyhow!(
-                    "Tried to visit the script oracle using web options!"
+                    "Tried to visit the script oracle using web configs!"
                 ))
             }
         };
 
         let oracle = Self {
             path: path.to_path_buf(),
-            _options: options.clone(),
+            _config: config.clone(),
         };
         Ok(oracle)
     }

@@ -6,7 +6,7 @@ use reqwest::{
 };
 
 use crate::{
-    cli::{SubOptions, WebOptions},
+    config::{SubConfig, WebConfig},
     cypher_text::encode::Encode,
     oracle::oracle_location::OracleLocation,
 };
@@ -17,13 +17,13 @@ use super::{keyword_location, replace_keyword_occurrences, KeywordLocation};
 /// `ask_validation` needs to return the web request's `Response`.Meaning, `Oracle` can't be implemented. Also, implementing it would be confusing as `CalibrateWebOracle`'s purpose is different from normal oracles.
 pub struct CalibrationWebOracle {
     url: Url,
-    options: WebOptions,
+    config: WebConfig,
     web_client: Client,
     keyword_locations: Vec<KeywordLocation>,
 }
 
 impl CalibrationWebOracle {
-    pub fn visit(oracle_location: &OracleLocation, oracle_options: &SubOptions) -> Result<Self> {
+    pub fn visit(oracle_location: &OracleLocation, oracle_config: &SubConfig) -> Result<Self> {
         let url = match oracle_location {
             OracleLocation::Web(url) => url,
             OracleLocation::Script(_) => {
@@ -31,16 +31,16 @@ impl CalibrationWebOracle {
             }
         };
 
-        let options = match oracle_options {
-            SubOptions::Web(options) => options,
-            SubOptions::Script(_) => {
+        let config = match oracle_config {
+            SubConfig::Web(config) => config,
+            SubConfig::Script(_) => {
                 return Err(anyhow!(
-                    "Tried to visit the web oracle using script options!"
+                    "Tried to visit the web oracle using script configs!"
                 ));
             }
         };
 
-        let keyword_locations = keyword_location(url, options);
+        let keyword_locations = keyword_location(url, config);
         if keyword_locations.is_empty() {
             return Err(anyhow!(
                 "Keyword not found in URL, headers, or POST data. See `--keyword` for further info"
@@ -48,8 +48,8 @@ impl CalibrationWebOracle {
         }
 
         let mut client_builder =
-            ClientBuilder::new().danger_accept_invalid_certs(options.insecure());
-        if !options.redirect() {
+            ClientBuilder::new().danger_accept_invalid_certs(config.insecure());
+        if !config.redirect() {
             client_builder = client_builder.redirect(Policy::none());
         }
 
@@ -59,7 +59,7 @@ impl CalibrationWebOracle {
 
         let oracle = Self {
             url: url.to_owned(),
-            options: options.clone(),
+            config: config.clone(),
             web_client,
             keyword_locations,
         };
@@ -69,13 +69,13 @@ impl CalibrationWebOracle {
     pub fn ask_validation<'a>(&self, cypher_text: &'a impl Encode<'a>) -> Result<Response> {
         let (url, data, headers) = replace_keyword_occurrences(
             &self.url,
-            &self.options,
+            &self.config,
             self.keyword_locations.iter(),
             &cypher_text.encode(),
         )
         .context("Failed to replace all occurrences of the keyword")?;
 
-        let request = if self.options.post_data().is_none() {
+        let request = if self.config.post_data().is_none() {
             self.web_client.get(url)
         } else {
             self.web_client.post(url)
@@ -89,7 +89,7 @@ impl CalibrationWebOracle {
         request.send().context("Failed to send request")
     }
 
-    pub fn options(&self) -> &WebOptions {
-        &self.options
+    pub fn config(&self) -> &WebConfig {
+        &self.config
     }
 }

@@ -11,7 +11,7 @@ use reqwest::{
 };
 
 use crate::{
-    cli::{SubOptions, WebOptions},
+    config::{SubConfig, WebConfig},
     cypher_text::encode::Encode,
     questioning::calibration_response::CalibrationResponse,
 };
@@ -20,13 +20,13 @@ use super::{oracle_location::OracleLocation, Oracle};
 
 pub struct WebOracle {
     url: Url,
-    options: WebOptions,
+    config: WebConfig,
     web_client: Client,
     keyword_locations: Vec<KeywordLocation>,
 }
 
 impl Oracle for WebOracle {
-    fn visit(oracle_location: &OracleLocation, oracle_options: &SubOptions) -> Result<Self> {
+    fn visit(oracle_location: &OracleLocation, oracle_config: &SubConfig) -> Result<Self> {
         let url = match oracle_location {
             OracleLocation::Web(url) => url,
             OracleLocation::Script(_) => {
@@ -34,16 +34,16 @@ impl Oracle for WebOracle {
             }
         };
 
-        let options = match oracle_options {
-            SubOptions::Web(options) => options,
-            SubOptions::Script(_) => {
+        let config = match oracle_config {
+            SubConfig::Web(config) => config,
+            SubConfig::Script(_) => {
                 return Err(anyhow!(
-                    "Tried to visit the web oracle using script options!"
+                    "Tried to visit the web oracle using script configs!"
                 ));
             }
         };
 
-        let keyword_locations = keyword_location(url, options);
+        let keyword_locations = keyword_location(url, config);
         if keyword_locations.is_empty() {
             return Err(anyhow!(
                 "Keyword not found in URL, headers, or POST data. See `--keyword` for further info"
@@ -51,8 +51,8 @@ impl Oracle for WebOracle {
         }
 
         let mut client_builder =
-            ClientBuilder::new().danger_accept_invalid_certs(options.insecure());
-        if !options.redirect() {
+            ClientBuilder::new().danger_accept_invalid_certs(config.insecure());
+        if !config.redirect() {
             client_builder = client_builder.redirect(Policy::none());
         }
 
@@ -62,7 +62,7 @@ impl Oracle for WebOracle {
 
         let oracle = Self {
             url: url.to_owned(),
-            options: options.clone(),
+            config: config.clone(),
             web_client,
             keyword_locations,
         };
@@ -72,13 +72,13 @@ impl Oracle for WebOracle {
     fn ask_validation<'a>(&self, cypher_text: &'a impl Encode<'a>) -> Result<bool> {
         let (url, data, headers) = replace_keyword_occurrences(
             &self.url,
-            &self.options,
+            &self.config,
             self.keyword_locations.iter(),
             &cypher_text.encode(),
         )
         .context("Failed to replace all occurrences of the keyword")?;
 
-        let request = if self.options.post_data().is_none() {
+        let request = if self.config.post_data().is_none() {
             self.web_client.get(url)
         } else {
             self.web_client.post(url)
@@ -90,9 +90,9 @@ impl Oracle for WebOracle {
         };
 
         let response = request.send().context("Failed to send request")?;
-        let response = CalibrationResponse::from_response(response, self.options.consider_body())?;
+        let response = CalibrationResponse::from_response(response, self.config.consider_body())?;
 
-        let padding_error_response = self.options.padding_error_response().as_ref().ok_or_else(|| anyhow!("Web oracle was not calibrated. We don't know how an (in)correct padding response looks like"))?;
+        let padding_error_response = self.config.padding_error_response().as_ref().ok_or_else(|| anyhow!("Web oracle was not calibrated. We don't know how an (in)correct padding response looks like"))?;
 
         Ok(response != *padding_error_response)
     }
@@ -117,12 +117,12 @@ struct HeaderWithKeyword {
 
 fn replace_keyword_occurrences<'a>(
     url: &Url,
-    options: &WebOptions,
+    config: &WebConfig,
     keyword_locations: impl Iterator<Item = &'a KeywordLocation>,
     encoded_cypher_text: &str,
 ) -> Result<(Url, Option<String>, HeaderMap)> {
     let mut url = url.clone();
-    let mut data = options.post_data().clone();
+    let mut data = config.post_data().clone();
     let mut headers = None;
 
     for location in keyword_locations {
@@ -130,7 +130,7 @@ fn replace_keyword_occurrences<'a>(
             KeywordLocation::Url => {
                 url = Url::parse(&url
                     .to_string()
-                    .replace(options.keyword(), encoded_cypher_text)).expect("Target URL, which parsed correctly initially, doesn't parse any more after replacing the keyword");
+                    .replace(config.keyword(), encoded_cypher_text)).expect("Target URL, which parsed correctly initially, doesn't parse any more after replacing the keyword");
             }
             KeywordLocation::PostData => {
                 data = Some(
@@ -138,12 +138,12 @@ fn replace_keyword_occurrences<'a>(
                         .expect(
                             "The keyword was found in the POST data, yet no POST data exists...",
                         )
-                        .replace(options.keyword(), encoded_cypher_text),
+                        .replace(config.keyword(), encoded_cypher_text),
                 );
             }
             KeywordLocation::Headers(headers_with_keyword) => {
                 headers = Some(
-                    replace_keyword_in_headers(options, headers_with_keyword, encoded_cypher_text)
+                    replace_keyword_in_headers(config, headers_with_keyword, encoded_cypher_text)
                         .context("Failed to parse headers")?,
                 );
             }
@@ -153,7 +153,7 @@ fn replace_keyword_occurrences<'a>(
     // maybe there are no headers to replace, in which case the `HeaderMap` hasn't been constructed. Do it now
     if headers.is_none() {
         headers = Some(
-            replace_keyword_in_headers(options, &HashMap::new(), encoded_cypher_text)
+            replace_keyword_in_headers(config, &HashMap::new(), encoded_cypher_text)
                 .context("Failed to parse headers")?,
         );
     }
@@ -165,11 +165,11 @@ fn replace_keyword_occurrences<'a>(
 }
 
 fn replace_keyword_in_headers(
-    options: &WebOptions,
+    config: &WebConfig,
     headers_with_keyword: &HashMap<usize, HeaderWithKeyword>,
     encoded_cypher_text: &str,
 ) -> Result<HeaderMap> {
-    options
+    config
         .headers()
         .iter()
         .enumerate()
@@ -180,15 +180,13 @@ fn replace_keyword_in_headers(
                 Some(replace_location) => {
                     // replace if needed
                     let resulting_name = if replace_location.keyword_in_name {
-                        HeaderName::from_str(&name.replace(options.keyword(), encoded_cypher_text))
+                        HeaderName::from_str(&name.replace(config.keyword(), encoded_cypher_text))
                     } else {
                         HeaderName::from_str(name)
                     };
 
                     let resulting_value = if replace_location.keyword_in_value {
-                        HeaderValue::from_str(
-                            &value.replace(options.keyword(), encoded_cypher_text),
-                        )
+                        HeaderValue::from_str(&value.replace(config.keyword(), encoded_cypher_text))
                     } else {
                         HeaderValue::from_str(value)
                     };
@@ -207,29 +205,29 @@ fn replace_keyword_in_headers(
 }
 
 /// Try to indicate where the keyword is as precisely as possible. This is to prevent unneeded `.replace`s on every value, every time a request is made
-fn keyword_location(url: &Url, options: &WebOptions) -> Vec<KeywordLocation> {
+fn keyword_location(url: &Url, config: &WebConfig) -> Vec<KeywordLocation> {
     let mut keyword_locations = Vec::with_capacity(3);
 
-    if url.to_string().contains(options.keyword()) {
+    if url.to_string().contains(config.keyword()) {
         keyword_locations.push(KeywordLocation::Url);
     }
 
-    if options
+    if config
         .post_data()
         .as_deref()
         .unwrap_or_default()
-        .contains(options.keyword())
+        .contains(config.keyword())
     {
         keyword_locations.push(KeywordLocation::PostData);
     }
 
-    let headers_with_keyword = options
+    let headers_with_keyword = config
         .headers()
         .iter()
         .enumerate()
         .filter_map(|(idx, (name, value))| {
-            let keyword_in_name = name.contains(options.keyword());
-            let keyword_in_value = value.contains(options.keyword());
+            let keyword_in_name = name.contains(config.keyword());
+            let keyword_in_value = value.contains(config.keyword());
 
             if keyword_in_name || keyword_in_value {
                 Some((

@@ -12,22 +12,22 @@ use self::block_size_option::BlockSizeOption;
 /// Native struct for CLI args.
 // Why: because `Clap::ArgMatches` is underlying a `HashMap`, and accessing requires passing strings and error checking. That's ugly.
 #[derive(Debug)]
-pub struct Options {
+pub struct Config {
     oracle_location: OracleLocation,
     cypher_text: String,
     block_size: BlockSizeOption,
     // sub-commands options
-    sub_options: SubOptions,
+    sub_config: SubConfig,
 }
 
 #[derive(Debug)]
-pub enum SubOptions {
-    Web(WebOptions),
-    Script(ScriptOptions),
+pub enum SubConfig {
+    Web(WebConfig),
+    Script(ScriptConfig),
 }
 
 #[derive(Debug, Clone)]
-pub struct WebOptions {
+pub struct WebConfig {
     // arguments
     post_data: Option<String>,
     headers: Vec<(String, String)>,
@@ -43,9 +43,9 @@ pub struct WebOptions {
 }
 
 #[derive(Debug, Clone)]
-pub struct ScriptOptions {}
+pub struct ScriptConfig {}
 
-impl Options {
+impl Config {
     pub fn parse() -> Result<Self> {
         let yaml = load_yaml!("cli.yml");
         let args = App::from(yaml).get_matches();
@@ -98,16 +98,16 @@ impl Options {
     pub fn block_size(&self) -> &BlockSizeOption {
         &self.block_size
     }
-    pub fn sub_options(&self) -> &SubOptions {
-        &self.sub_options
+    pub fn sub_config(&self) -> &SubConfig {
+        &self.sub_config
     }
 
-    pub fn sub_options_mut(&mut self) -> &mut SubOptions {
-        &mut self.sub_options
+    pub fn sub_config_mut(&mut self) -> &mut SubConfig {
+        &mut self.sub_config
     }
 }
 
-impl WebOptions {
+impl WebConfig {
     pub fn post_data(&self) -> &Option<String> {
         &self.post_data
     }
@@ -145,7 +145,7 @@ fn parse_as_web(
     block_size: BlockSizeOption,
     sub_command: &str,
     args: &ArgMatches,
-) -> Result<Options> {
+) -> Result<Config> {
     fn split_headers<'a>(
         headers: impl IntoIterator<Item = &'a str>,
     ) -> Result<Vec<(String, String)>> {
@@ -167,7 +167,7 @@ fn parse_as_web(
         .value_of("keyword")
         .expect("No default value for argument `keyword`");
 
-    let web_options = WebOptions {
+    let web_config = WebConfig {
         post_data: args.value_of("data").map(|d| d.to_owned()),
         headers: match args.values_of("header") {
             Some(headers) => split_headers(headers)?,
@@ -182,11 +182,11 @@ fn parse_as_web(
         padding_error_response: None,
     };
 
-    Ok(Options {
+    Ok(Config {
         oracle_location: OracleLocation::new(oracle_location, sub_command)?,
         cypher_text: cypher_text.to_string(),
         block_size,
-        sub_options: SubOptions::Web(web_options),
+        sub_config: SubConfig::Web(web_config),
     })
 }
 
@@ -196,11 +196,11 @@ fn parse_as_script(
     block_size: BlockSizeOption,
     sub_command: &str,
     _args: &ArgMatches,
-) -> Result<Options> {
-    Ok(Options {
+) -> Result<Config> {
+    Ok(Config {
         oracle_location: OracleLocation::new(oracle_location, sub_command)?,
         cypher_text: cypher_text.to_string(),
         block_size,
-        sub_options: SubOptions::Script(ScriptOptions {}),
+        sub_config: SubConfig::Script(ScriptConfig {}),
     })
 }
