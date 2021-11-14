@@ -1,19 +1,12 @@
 mod layout;
 mod widgets;
 
-use std::{
-    io::{self, Write},
-    ops::{Deref, DerefMut},
-};
+use std::io::{self};
 
 use anyhow::{Context, Result};
-use rayon::{iter::plumbing::UnindexedProducer, vec};
 use tui::{
     backend::CrosstermBackend,
-    layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
-    text::Span,
-    widgets::{Block, Borders, Gauge, Row, Table},
     Terminal,
 };
 
@@ -28,7 +21,7 @@ pub struct Tui {
 }
 
 impl Tui {
-    pub fn new(block_size: BlockSize) -> Result<Self> {
+    pub fn new(block_size: &BlockSize) -> Result<Self> {
         let stdout = io::stdout();
         let backend = CrosstermBackend::new(stdout);
         let mut terminal = Terminal::new(backend)?;

@@ -11,31 +11,35 @@ settings:
     - ColorAuto
     - ColoredHelp
 args:
+    # TODO: these 3 should be global, such that they can be placed after subcommand specifiers. But required globals are not supported by `clap`
+    # https://github.com/clap-rs/clap/issues/1546
     - oracle:
         help: Oracle to question
         long_help: "The oracle to question with forged cypher texts. This can be a URL or a shell script.
 
         See the subcommands `web --help` and `script --help` respectively for further help."
         short: o
+        long: oracle
         takes_value: true
         required: true
-        index: 1
+        # global: true
     - cypher_text:
         help: Original cypher text
         long_help: Original cypher text received from the target service
         aliases: ctext
-        short: ct
+        short: t
+        long: cypher_text
         takes_value: true
         required: true
-        index: 2
+        # global: true
     - block_size:
         help: Block size used by the cypher
-        short: bs
+        short: b
         long: block_size
-        possible_values: [ auto, "8", "16" ]
-        default_value: auto
+        possible_values: [ "8", "16" ]
         takes_value: true
-        global: true
+        required: true
+        # global: true
 subcommands:
     - web:
         about: Question a web-based oracle
@@ -80,7 +84,8 @@ subcommands:
             - consider_body:
                 help: Consider the body during calibration
                 long_help: Consider the response body and content length when determining how the web oracle responds to (in)correct padding
-                short: body
+                aliases: consider_content
+                short: c
                 long: consider_body
                 takes_value: false
 

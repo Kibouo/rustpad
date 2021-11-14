@@ -1,14 +1,11 @@
-pub mod block_size_option;
-
 use anyhow::{Context, Result};
 use clap::{load_yaml, App, ArgMatches};
 use getset::{Getters, MutGetters, Setters};
 
 use crate::{
-    oracle::oracle_location::OracleLocation, questioning::calibration_response::CalibrationResponse,
+    block::block_size::BlockSize, oracle::oracle_location::OracleLocation,
+    questioning::calibration_response::CalibrationResponse,
 };
-
-use self::block_size_option::BlockSizeOption;
 
 /// Native struct for CLI args.
 // Why: because `Clap::ArgMatches` is underlying a `HashMap`, and accessing requires passing strings and error checking. That's ugly.
@@ -19,7 +16,7 @@ pub struct Config {
     #[getset(get = "pub")]
     cypher_text: String,
     #[getset(get = "pub")]
-    block_size: BlockSizeOption,
+    block_size: BlockSize,
     // sub-commands options
     #[getset(get = "pub", get_mut = "pub")]
     sub_config: SubConfig,
@@ -68,7 +65,7 @@ impl Config {
         let cypher_text = args
             .value_of("cypher_text")
             .expect("No required argument `cypher_text` found");
-        let block_size: BlockSizeOption = args
+        let block_size: BlockSize = args
             .value_of("block_size")
             .expect("No required argument `block_size` found")
             .into();
@@ -105,7 +102,7 @@ impl Config {
 fn parse_as_web(
     oracle_location: &str,
     cypher_text: &str,
-    block_size: BlockSizeOption,
+    block_size: BlockSize,
     sub_command: &str,
     args: &ArgMatches,
 ) -> Result<Config> {
@@ -156,7 +153,7 @@ fn parse_as_web(
 fn parse_as_script(
     oracle_location: &str,
     cypher_text: &str,
-    block_size: BlockSizeOption,
+    block_size: BlockSize,
     sub_command: &str,
     _args: &ArgMatches,
 ) -> Result<Config> {

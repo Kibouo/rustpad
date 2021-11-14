@@ -8,11 +8,7 @@ mod tui;
 use anyhow::{Context, Result};
 
 use crate::{
-    block::{
-        block_size::{BlockSize, BlockSizeTrait},
-        Block,
-    },
-    config::{block_size_option::BlockSizeOption, Config, SubConfig},
+    config::{Config, SubConfig},
     cypher_text::CypherText,
     oracle::{
         oracle_location::OracleLocation,
@@ -26,17 +22,13 @@ use crate::{
 
 fn main() -> Result<()> {
     let mut config = Config::parse()?;
-    // TODO: pass proper block size
-    let mut tui = Tui::new(BlockSize::Eight).context("Failed to create terminal user interface")?;
+    let mut tui =
+        Tui::new(config.block_size()).context("Failed to create terminal user interface")?;
 
     tui.setup()?;
     todo!();
 
-    let cypher_text = match config.block_size() {
-        BlockSizeOption::Eight => CypherText::parse(config.cypher_text(), &BlockSize::Eight)?,
-        BlockSizeOption::Sixteen => CypherText::parse(config.cypher_text(), &BlockSize::Sixteen)?,
-        BlockSizeOption::Auto => todo!(),
-    };
+    let cypher_text = CypherText::parse(config.cypher_text(), config.block_size())?;
 
     let decoded = match config.oracle_location() {
         OracleLocation::Web(_) => {
