@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Context, Result};
+use getset::Getters;
 use reqwest::{
     blocking::{Client, ClientBuilder, Response},
     redirect::Policy,
@@ -15,8 +16,10 @@ use super::{keyword_location, replace_keyword_occurrences, KeywordLocation};
 
 /// Unlike with `ScriptOracle`, we don't know which response from the web server corresponds with "valid", and which corresponds to "incorrect padding". For `WebOracle` to magically work, we need to determine the "incorrect padding" response. This struct manages the requests used for the calibration.
 /// `ask_validation` needs to return the web request's `Response`.Meaning, `Oracle` can't be implemented. Also, implementing it would be confusing as `CalibrateWebOracle`'s purpose is different from normal oracles.
+#[derive(Getters)]
 pub struct CalibrationWebOracle {
     url: Url,
+    #[getset(get = "pub")]
     config: WebConfig,
     web_client: Client,
     keyword_locations: Vec<KeywordLocation>,
@@ -48,7 +51,7 @@ impl CalibrationWebOracle {
         }
 
         let mut client_builder =
-            ClientBuilder::new().danger_accept_invalid_certs(config.insecure());
+            ClientBuilder::new().danger_accept_invalid_certs(*config.insecure());
         if !config.redirect() {
             client_builder = client_builder.redirect(Policy::none());
         }
@@ -87,9 +90,5 @@ impl CalibrationWebOracle {
         };
 
         request.send().context("Failed to send request")
-    }
-
-    pub fn config(&self) -> &WebConfig {
-        &self.config
     }
 }

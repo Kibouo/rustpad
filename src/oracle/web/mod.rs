@@ -51,7 +51,7 @@ impl Oracle for WebOracle {
         }
 
         let mut client_builder =
-            ClientBuilder::new().danger_accept_invalid_certs(config.insecure());
+            ClientBuilder::new().danger_accept_invalid_certs(*config.insecure());
         if !config.redirect() {
             client_builder = client_builder.redirect(Policy::none());
         }
@@ -90,7 +90,7 @@ impl Oracle for WebOracle {
         };
 
         let response = request.send().context("Failed to send request")?;
-        let response = CalibrationResponse::from_response(response, self.config.consider_body())?;
+        let response = CalibrationResponse::from_response(response, *self.config.consider_body())?;
 
         let padding_error_response = self.config.padding_error_response().as_ref().ok_or_else(|| anyhow!("Web oracle was not calibrated. We don't know how an (in)correct padding response looks like"))?;
 

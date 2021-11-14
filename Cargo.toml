@@ -17,3 +17,4 @@ rayon = "1.5"
 # use crossterm for windows compatibility
 tui = { version = "0.16", default-features = false, features = ["crossterm"] }
 crossterm = "0.22"
+getset = "0.1"

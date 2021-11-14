@@ -47,7 +47,7 @@ fn main() -> Result<()> {
             let padding_error_response = questioning.calibrate_web_oracle(calibration_oracle)?;
 
             if let SubConfig::Web(web_config) = config.sub_config_mut() {
-                web_config.save_padding_error_response(padding_error_response);
+                web_config.set_padding_error_response(Some(padding_error_response));
             }
 
             let oracle = WebOracle::visit(config.oracle_location(), config.sub_config())?;

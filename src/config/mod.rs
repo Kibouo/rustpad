@@ -2,6 +2,7 @@ pub mod block_size_option;
 
 use anyhow::{Context, Result};
 use clap::{load_yaml, App, ArgMatches};
+use getset::{Getters, MutGetters, Setters};
 
 use crate::{
     oracle::oracle_location::OracleLocation, questioning::calibration_response::CalibrationResponse,
@@ -11,12 +12,16 @@ use self::block_size_option::BlockSizeOption;
 
 /// Native struct for CLI args.
 // Why: because `Clap::ArgMatches` is underlying a `HashMap`, and accessing requires passing strings and error checking. That's ugly.
-#[derive(Debug)]
+#[derive(Debug, Getters, MutGetters)]
 pub struct Config {
+    #[getset(get = "pub")]
     oracle_location: OracleLocation,
+    #[getset(get = "pub")]
     cypher_text: String,
+    #[getset(get = "pub")]
     block_size: BlockSizeOption,
     // sub-commands options
+    #[getset(get = "pub", get_mut = "pub")]
     sub_config: SubConfig,
 }
 
@@ -26,19 +31,26 @@ pub enum SubConfig {
     Script(ScriptConfig),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Getters, Setters)]
 pub struct WebConfig {
     // arguments
+    #[getset(get = "pub")]
     post_data: Option<String>,
+    #[getset(get = "pub")]
     headers: Vec<(String, String)>,
+    #[getset(get = "pub")]
     keyword: String,
 
     // flags
+    #[getset(get = "pub")]
     redirect: bool,
+    #[getset(get = "pub")]
     insecure: bool,
+    #[getset(get = "pub")]
     consider_body: bool,
 
     // config to be filled out later
+    #[getset(get = "pub", set = "pub")]
     padding_error_response: Option<CalibrationResponse>,
 }
 
@@ -87,55 +99,6 @@ impl Config {
             }
             _ => unreachable!(format!("Invalid sub-command: {}", sub_command)),
         }
-    }
-
-    pub fn oracle_location(&self) -> &OracleLocation {
-        &self.oracle_location
-    }
-    pub fn cypher_text(&self) -> &str {
-        &self.cypher_text
-    }
-    pub fn block_size(&self) -> &BlockSizeOption {
-        &self.block_size
-    }
-    pub fn sub_config(&self) -> &SubConfig {
-        &self.sub_config
-    }
-
-    pub fn sub_config_mut(&mut self) -> &mut SubConfig {
-        &mut self.sub_config
-    }
-}
-
-impl WebConfig {
-    pub fn post_data(&self) -> &Option<String> {
-        &self.post_data
-    }
-    pub fn headers(&self) -> &Vec<(String, String)> {
-        &self.headers
-    }
-    pub fn keyword(&self) -> &String {
-        &self.keyword
-    }
-    pub fn redirect(&self) -> bool {
-        self.redirect
-    }
-    pub fn insecure(&self) -> bool {
-        self.insecure
-    }
-    pub fn consider_body(&self) -> bool {
-        self.consider_body
-    }
-    pub fn padding_error_response(&self) -> &Option<CalibrationResponse> {
-        &self.padding_error_response
-    }
-
-    pub fn save_padding_error_response(
-        &mut self,
-        padding_error_response: CalibrationResponse,
-    ) -> &mut Self {
-        self.padding_error_response = Some(padding_error_response);
-        self
     }
 }
 

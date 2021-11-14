@@ -1,14 +1,22 @@
+use getset::Getters;
 use tui::layout::{Constraint, Direction, Layout, Rect};
 
+#[derive(Getters)]
 pub struct TuiLayout {
     // decryption panel
-    forged_cypher_text_area: Rect,
-    intermediate_area: Rect,
+    #[get = "pub"]
+    forged_block_area: Rect,
+    #[get = "pub"]
+    intermediate_block_area: Rect,
+    #[get = "pub"]
     plaintext_area: Rect,
 
     // status panel
+    #[get = "pub"]
     status_panel_area: Rect,
+    #[get = "pub"]
     progress_bar_area: Rect,
+    #[get = "pub"]
     logs_area: Rect,
 }
 
@@ -46,36 +54,12 @@ impl TuiLayout {
             .split(main_vertical_layout[1]);
 
         Self {
-            forged_cypher_text_area: decryption_panel[0],
-            intermediate_area: decryption_panel[1],
+            forged_block_area: decryption_panel[0],
+            intermediate_block_area: decryption_panel[1],
             plaintext_area: decryption_panel[2],
             status_panel_area: main_vertical_layout[1],
             progress_bar_area: status_panel[0],
             logs_area: status_panel[1],
         }
-    }
-
-    pub fn forged_block_area(&self) -> &Rect {
-        &self.forged_cypher_text_area
-    }
-
-    pub fn intermediate_block_area(&self) -> &Rect {
-        &self.intermediate_area
-    }
-
-    pub fn plaintext_area(&self) -> &Rect {
-        &self.plaintext_area
-    }
-
-    pub fn status_panel_area(&self) -> &Rect {
-        &self.status_panel_area
-    }
-
-    pub fn progress_bar_area(&self) -> &Rect {
-        &self.progress_bar_area
-    }
-
-    pub fn logs_area(&self) -> &Rect {
-        &self.logs_area
     }
 }

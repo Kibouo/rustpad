@@ -1,16 +1,18 @@
 use anyhow::{anyhow, Result};
+use getset::Getters;
 
 use crate::block::block_size::{BlockSize, BlockSizeTrait};
 
 use super::{AmountBlocksTrait, Block, CypherText, Encode, Encoding};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Getters)]
 pub struct ForgedCypherText<'a> {
     original_blocks: &'a [Block],
     url_encoded: bool,
     used_encoding: Encoding,
 
     current_byte_idx: Option<u8>,
+    #[getset(get = "pub")]
     forged_block_wip: Block,
     forged_block_solution: Block,
 }
@@ -78,10 +80,6 @@ impl<'a> ForgedCypherText<'a> {
                 self.forged_block_wip
             )),
         }
-    }
-
-    pub fn forged_block_wip(&self) -> &Block {
-        &self.forged_block_wip
     }
 
     pub fn plaintext_block_solution(&self) -> Result<String> {

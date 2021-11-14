@@ -1,3 +1,4 @@
+use getset::Getters;
 use tui::{
     layout::Constraint,
     style::{Color, Style},
@@ -5,17 +6,25 @@ use tui::{
     widgets::{Block, Borders, Gauge, Row, Table},
 };
 
+#[derive(Getters)]
 pub struct Widgets {
+    #[getset(get = "pub")]
     outer_border: Block<'static>,
 
     // decryption panel
-    forged_cypher_text_view: Table<'static>,
-    intermediate_view: Table<'static>,
+    #[getset(get = "pub")]
+    forged_block_view: Table<'static>,
+    #[getset(get = "pub")]
+    intermediate_block_view: Table<'static>,
+    #[getset(get = "pub")]
     plaintext_view: Table<'static>,
 
     // status panel
+    #[getset(get = "pub")]
     status_panel_border: Block<'static>,
+    #[getset(get = "pub")]
     progress_bar: Gauge<'static>,
+    #[getset(get = "pub")]
     logs_view: Block<'static>,
 }
 
@@ -24,8 +33,8 @@ impl Widgets {
         Widgets {
             outer_border: build_outer_border(title_style),
 
-            forged_cypher_text_view: build_forged_cypher_text_view(title_style, vec![]),
-            intermediate_view: build_intermediate_view(
+            forged_block_view: build_forged_block_view(title_style, vec![]),
+            intermediate_block_view: build_intermediate_view(
                 title_style,
                 vec![Row::new(vec!["hi proper data here"])],
             ),
@@ -42,28 +51,6 @@ impl Widgets {
             logs_view: build_log_view(title_style),
         }
     }
-
-    pub fn outer_border(&self) -> &Block<'static> {
-        &self.outer_border
-    }
-    pub fn forged_block_view(&self) -> &Table<'static> {
-        &self.forged_cypher_text_view
-    }
-    pub fn intermediate_block_view(&self) -> &Table<'static> {
-        &self.intermediate_view
-    }
-    pub fn plaintext_view(&self) -> &Table<'static> {
-        &self.plaintext_view
-    }
-    pub fn status_panel_border(&self) -> &Block<'static> {
-        &self.status_panel_border
-    }
-    pub fn progress_bar(&self) -> &Gauge<'static> {
-        &self.progress_bar
-    }
-    pub fn logs_view(&self) -> &Block<'static> {
-        &self.logs_view
-    }
 }
 
 fn build_outer_border(title_style: Style) -> Block<'static> {
@@ -76,7 +63,7 @@ fn build_outer_border(title_style: Style) -> Block<'static> {
     Block::default().title(title).borders(Borders::NONE)
 }
 
-fn build_forged_cypher_text_view(title_style: Style, rows: Vec<Row>) -> Table {
+fn build_forged_block_view(title_style: Style, rows: Vec<Row>) -> Table {
     let title = {
         let mut title = Span::from("Forged block");
         title.style = title_style;
