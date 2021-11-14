@@ -17,6 +17,8 @@ pub struct Config {
     cypher_text: String,
     #[getset(get = "pub")]
     block_size: BlockSize,
+    #[getset(get = "pub")]
+    no_iv: bool,
     // sub-commands options
     #[getset(get = "pub", get_mut = "pub")]
     sub_config: SubConfig,
@@ -146,6 +148,8 @@ fn parse_as_web(
         oracle_location: OracleLocation::new(oracle_location, sub_command)?,
         cypher_text: cypher_text.to_string(),
         block_size,
+        // all blocks, except the 0-th which is the IV, are to be decrypted.
+        no_iv: false,
         sub_config: SubConfig::Web(web_config),
     })
 }
@@ -161,6 +165,9 @@ fn parse_as_script(
         oracle_location: OracleLocation::new(oracle_location, sub_command)?,
         cypher_text: cypher_text.to_string(),
         block_size,
+        // all blocks, except the 0-th which is the IV, are to be decrypted.
+        // This could change with a "noiv" option
+        no_iv: false,
         sub_config: SubConfig::Script(ScriptConfig {}),
     })
 }

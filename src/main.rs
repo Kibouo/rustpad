@@ -6,6 +6,8 @@ mod questioning;
 mod tui;
 
 use anyhow::{Context, Result};
+use crossbeam::thread;
+use cypher_text::encode::Encode;
 
 use crate::{
     config::{Config, SubConfig},
@@ -17,22 +19,18 @@ use crate::{
         Oracle,
     },
     questioning::Questioning,
-    tui::Tui,
+    tui::{ui_update::UiUpdate, Tui},
 };
 
-fn main() -> Result<()> {
-    let mut config = Config::parse()?;
-    let mut tui =
-        Tui::new(config.block_size()).context("Failed to create terminal user interface")?;
-
-    tui.setup()?;
-    todo!();
-
-    let cypher_text = CypherText::parse(config.cypher_text(), config.block_size())?;
-
-    let decoded = match config.oracle_location() {
+fn decrypt_main(
+    mut config: Config,
+    cypher_text: CypherText,
+    update_ui_callback: impl FnMut(UiUpdate) + Sync + Send + Clone,
+) -> Result<()> {
+    match config.oracle_location() {
         OracleLocation::Web(_) => {
-            let mut questioning = Questioning::prepare(tui, &cypher_text)?;
+            let mut questioning =
+                Questioning::prepare(update_ui_callback, &cypher_text, *config.no_iv())?;
 
             let calibration_oracle =
                 CalibrationWebOracle::visit(config.oracle_location(), config.sub_config())?;
@@ -43,16 +41,47 @@ fn main() -> Result<()> {
             }
 
             let oracle = WebOracle::visit(config.oracle_location(), config.sub_config())?;
-            questioning.start(oracle)?
+            questioning.start(oracle)
         }
         OracleLocation::Script(_) => {
             let oracle = ScriptOracle::visit(config.oracle_location(), config.sub_config())?;
-            Questioning::prepare(tui, &cypher_text)?.start(oracle)?
+            Questioning::prepare(update_ui_callback, &cypher_text, *config.no_iv())?.start(oracle)
         }
-    };
+    }
+}
 
-    eprintln!("decoded = {:#?}", decoded);
-    todo!();
+fn main() -> Result<()> {
+    let config = Config::parse()?;
+    let cypher_text = CypherText::parse(config.cypher_text(), config.block_size())?;
+    let tui = Tui::new(
+        config.block_size(),
+        cypher_text.blocks().to_vec(),
+        *config.no_iv(),
+    )
+    .context("Failed to create terminal UI")?;
+
+    let update_ui_callback = |update| tui.update(update);
+    thread::scope(|scope| {
+        scope
+            .builder()
+            .name("TUI".to_string())
+            .spawn(|_| tui.main_loop().expect("Error in TUI's main loop"))
+            .expect("Failed to create OS thread");
+
+        scope
+            .builder()
+            .name("Decryption".to_string())
+            .spawn(|_| {
+                decrypt_main(config, cypher_text, update_ui_callback)
+                    .map_err(|e| {
+                        (update_ui_callback)(UiUpdate::Done);
+                        e
+                    })
+                    .expect("Error in decryption's main loop")
+            })
+            .expect("Failed to create OS thread");
+    })
+    .unwrap();
 
     Ok(())
 }

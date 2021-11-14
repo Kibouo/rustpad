@@ -14,23 +14,24 @@ pub struct ForgedCypherText<'a> {
     current_byte_idx: Option<u8>,
     #[getset(get = "pub")]
     forged_block_wip: Block,
+    #[getset(get = "pub")]
     forged_block_solution: Block,
 }
 
 impl<'a> ForgedCypherText<'a> {
     pub fn from_part_of_cypher_text(
         cypher_text: &'a CypherText,
-        block_to_decrypt: usize,
+        block_to_decrypt_idx: usize,
     ) -> Result<Self> {
-        if block_to_decrypt + 1 > cypher_text.amount_blocks() {
+        if block_to_decrypt_idx + 1 > cypher_text.amount_blocks() {
             return Err(anyhow!(
                 "Can't create a ForgedCypherText for block {}, with only {} blocks existing in the original",
-                block_to_decrypt + 1,
+                block_to_decrypt_idx + 1,
                 cypher_text.amount_blocks()
             ));
         }
 
-        let original_blocks = &cypher_text.blocks()[..block_to_decrypt + 1];
+        let original_blocks = &cypher_text.blocks()[..block_to_decrypt_idx + 1];
 
         let block_size = cypher_text.block_size();
         let forged_cypher_text = Self {
@@ -91,10 +92,7 @@ impl<'a> ForgedCypherText<'a> {
 
         let intermediate =
             &self.forged_block_solution ^ &Block::new_incremental_padding(&self.block_size());
-        let intermediate = intermediate?;
-
         let plaintext = &intermediate ^ self.original_forged_block();
-        let plaintext = plaintext?;
 
         Ok(plaintext.to_string())
     }

@@ -2,8 +2,10 @@ use getset::Getters;
 use tui::layout::{Constraint, Direction, Layout, Rect};
 
 #[derive(Getters)]
-pub struct TuiLayout {
+pub(super) struct TuiLayout {
     // decryption panel
+    #[get = "pub"]
+    original_cypher_text_area: Rect,
     #[get = "pub"]
     forged_block_area: Rect,
     #[get = "pub"]
@@ -21,7 +23,7 @@ pub struct TuiLayout {
 }
 
 impl TuiLayout {
-    pub fn calculate(full_frame_size: Rect, min_width_for_horizontal_layout: u16) -> Self {
+    pub(super) fn calculate(full_frame_size: Rect, min_width_for_horizontal_layout: u16) -> Self {
         let main_vertical_layout = Layout::default()
             .direction(Direction::Vertical)
             .margin(1)
@@ -38,9 +40,10 @@ impl TuiLayout {
             .direction(decyption_panel_direction)
             .constraints(
                 [
-                    Constraint::Ratio(1, 4),
-                    Constraint::Ratio(1, 4),
-                    Constraint::Ratio(2, 4),
+                    Constraint::Ratio(1, 5),
+                    Constraint::Ratio(1, 5),
+                    Constraint::Ratio(1, 5),
+                    Constraint::Ratio(2, 5),
                 ]
                 .as_ref(),
             )
@@ -54,9 +57,10 @@ impl TuiLayout {
             .split(main_vertical_layout[1]);
 
         Self {
-            forged_block_area: decryption_panel[0],
-            intermediate_block_area: decryption_panel[1],
-            plaintext_area: decryption_panel[2],
+            original_cypher_text_area: decryption_panel[0],
+            forged_block_area: decryption_panel[1],
+            intermediate_block_area: decryption_panel[2],
+            plaintext_area: decryption_panel[3],
             status_panel_area: main_vertical_layout[1],
             progress_bar_area: status_panel[0],
             logs_area: status_panel[1],

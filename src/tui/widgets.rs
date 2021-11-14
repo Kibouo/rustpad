@@ -1,3 +1,5 @@
+use std::{cmp::min, sync::atomic::Ordering};
+
 use getset::Getters;
 use tui::{
     layout::Constraint,
@@ -6,12 +8,16 @@ use tui::{
     widgets::{Block, Borders, Gauge, Row, Table},
 };
 
+use super::AppState;
+
 #[derive(Getters)]
-pub struct Widgets {
+pub(super) struct Widgets {
     #[getset(get = "pub")]
     outer_border: Block<'static>,
 
     // decryption panel
+    #[getset(get = "pub")]
+    original_cypher_text_view: Table<'static>,
     #[getset(get = "pub")]
     forged_block_view: Table<'static>,
     #[getset(get = "pub")]
@@ -29,25 +35,56 @@ pub struct Widgets {
 }
 
 impl Widgets {
-    pub fn build(title_style: Style) -> Widgets {
+    pub(super) fn build(title_style: Style, app_state: &AppState) -> Widgets {
         Widgets {
             outer_border: build_outer_border(title_style),
 
-            forged_block_view: build_forged_block_view(title_style, vec![]),
+            original_cypher_text_view: build_original_cypher_text_view(
+                title_style,
+                app_state
+                    .original_cypher_text_blocks
+                    .iter()
+                    .map(|b| Row::new([b.to_hex()]))
+                    .collect(),
+            ),
+            forged_block_view: build_forged_block_view(
+                title_style,
+                app_state
+                    .forged_blocks
+                    .lock()
+                    .unwrap()
+                    .iter()
+                    .map(|b| Row::new([b.to_hex()]))
+                    .collect(),
+            ),
             intermediate_block_view: build_intermediate_view(
                 title_style,
-                vec![Row::new(vec!["hi proper data here"])],
+                app_state
+                    .intermediate_blocks
+                    .lock()
+                    .unwrap()
+                    .iter()
+                    .map(|b| Row::new([b.to_hex()]))
+                    .collect(),
             ),
             plaintext_view: build_plaintext_view(
                 title_style,
-                vec![Row::new(vec![
-                    "baaaaaaaaaaaaaaaaaaaaaaaaaaaaaab",
-                    "baaaaaaaaaaaaaab",
-                ])],
+                app_state
+                    .plaintext_blocks
+                    .lock()
+                    .unwrap()
+                    .iter()
+                    .map(|b| Row::new([b.to_hex(), b.to_string()]))
+                    .collect(),
             ),
 
             status_panel_border: build_status_panel_border(title_style),
-            progress_bar: build_progress_bar(),
+            progress_bar: build_progress_bar(min(
+                ((app_state.bytes_finished.load(Ordering::Relaxed) as f32
+                    / app_state.bytes_to_finish as f32)
+                    * 100.0) as u8,
+                100,
+            )),
             logs_view: build_log_view(title_style),
         }
     }
@@ -61,6 +98,18 @@ fn build_outer_border(title_style: Style) -> Block<'static> {
     };
 
     Block::default().title(title).borders(Borders::NONE)
+}
+
+fn build_original_cypher_text_view(title_style: Style, rows: Vec<Row>) -> Table {
+    let title = {
+        let mut title = Span::from("Cypher text");
+        title.style = title_style;
+        title
+    };
+
+    Table::new(rows)
+        .block(Block::default().title(title).borders(Borders::ALL))
+        .widths(&[Constraint::Ratio(1, 1)])
 }
 
 fn build_forged_block_view(title_style: Style, rows: Vec<Row>) -> Table {
@@ -110,16 +159,16 @@ fn build_status_panel_border(title_style: Style) -> Block<'static> {
     Block::default().title(title).borders(Borders::ALL)
 }
 
-fn build_progress_bar() -> Gauge<'static> {
+fn build_progress_bar(progress: u8) -> Gauge<'static> {
     let label = {
-        let mut label = Span::from("TODO: 72");
+        let mut label = Span::from(format!("{}%", progress));
         label.style = Style::default().fg(Color::DarkGray);
         label
     };
 
     Gauge::default()
         .gauge_style(Style::default().fg(Color::LightCyan))
-        .percent(72)
+        .percent(progress as u16)
         .label(label)
         .use_unicode(true)
 }

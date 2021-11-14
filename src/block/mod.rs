@@ -113,6 +113,10 @@ impl Block {
         }
         self
     }
+
+    pub fn to_hex(&self) -> String {
+        hex::encode(&**self)
+    }
 }
 
 impl Display for Block {
@@ -135,15 +139,15 @@ impl BlockSizeTrait for Block {
 }
 
 impl BitXor for &Block {
-    type Output = Result<Block>;
+    type Output = Block;
 
     fn bitxor(self, rhs: Self) -> Self::Output {
         if *self.block_size() != *rhs.block_size() {
-            return Err(anyhow!(
+            panic!(
                 "Can't XOR blocks of size {} and {}",
                 *self.block_size(),
                 *rhs.block_size()
-            ));
+            );
         }
 
         let xored_bytes: Vec<u8> = self
@@ -154,7 +158,7 @@ impl BitXor for &Block {
             .map(|(l, r)| l ^ r)
             .collect();
 
-        Ok(xored_bytes[..].into())
+        xored_bytes[..].into()
     }
 }
 
