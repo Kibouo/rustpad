@@ -64,50 +64,6 @@ where
 
     /// Actually performs the oracle attack for each block.
     pub(super) fn start(&mut self, oracle: impl Oracle) -> Result<()> {
-        fn validate_while_handling_retries(
-            attempt: u64,
-            block_to_decrypt_idx: usize,
-            block_size: usize,
-            bytes_answered: usize,
-            oracle: &impl Oracle,
-            forged_cypher_text: &ForgedCypherText,
-        ) -> OperationResult<bool, String> {
-            if attempt > RETRY_MAX_ATTEMPTS {
-                error!(
-                    target: LOG_TARGET,
-                    "Block {}, byte {}: value validation failed",
-                    block_to_decrypt_idx,
-                    block_size - bytes_answered
-                );
-                return OperationResult::Err(format!(
-                    "Block {}, byte {}: value validation failed",
-                    block_to_decrypt_idx,
-                    block_size - bytes_answered
-                ));
-            }
-            match oracle.ask_validation(forged_cypher_text) {
-                Ok(correct_padding) => OperationResult::Ok(correct_padding),
-                Err(e) => {
-                    warn!(
-                        target: LOG_TARGET,
-                        "Block {}, byte {}: retrying value validation ({}/{})",
-                        block_to_decrypt_idx,
-                        block_size - bytes_answered,
-                        attempt,
-                        RETRY_MAX_ATTEMPTS
-                    );
-                    debug!(target: LOG_TARGET, "{:?}", e);
-                    OperationResult::Retry(format!(
-                        "Block {}, byte {}: retrying value validation ({}/{})",
-                        block_to_decrypt_idx,
-                        block_size - bytes_answered,
-                        attempt,
-                        RETRY_MAX_ATTEMPTS
-                    ))
-                }
-            }
-        }
-
         self.forged_cypher_texts.par_iter_mut().try_for_each(
             |forged_cypher_text| -> Result<()> {
                 let block_to_decrypt_idx = forged_cypher_text.amount_blocks() - 1;
@@ -138,6 +94,7 @@ where
                             )
                             .map_err(|e| anyhow!(e.to_string()))?;
 
+                            // update UI with attempt
                             (self.update_ui_callback.clone())(UiUpdate::ForgedBlockWip((
                                 forged_cypher_text.forged_block_wip().clone(),
                                 block_to_decrypt_idx,
@@ -231,7 +188,7 @@ where
         let plain_text_solution = self
             .forged_cypher_texts
             .iter()
-            .map(|forged_cypher_text| forged_cypher_text.plaintext_block_solution())
+            .map(|forged_cypher_text| forged_cypher_text.plaintext_solution())
             .collect::<Result<String>>()?;
         if !plain_text_solution.is_empty() {
             info!(
@@ -249,34 +206,6 @@ where
         &mut self,
         oracle: CalibrationWebOracle,
     ) -> Result<CalibrationResponse> {
-        fn calibrate_while_handling_retries(
-            attempt: u64,
-            oracle: &CalibrationWebOracle,
-            forged_cypher_text: &ForgedCypherText,
-        ) -> OperationResult<Response, String> {
-            if attempt > RETRY_MAX_ATTEMPTS {
-                error!(target: LOG_TARGET, "Calibration block: validation failed",);
-                return OperationResult::Err("Calibration block: validation failed".to_string());
-            }
-
-            match oracle.ask_validation(forged_cypher_text) {
-                Ok(correct_padding) => OperationResult::Ok(correct_padding),
-                Err(e) => {
-                    warn!(
-                        target: LOG_TARGET,
-                        "Calibration block: retrying validation ({}/{})",
-                        attempt,
-                        RETRY_MAX_ATTEMPTS
-                    );
-                    debug!(target: LOG_TARGET, "{:?}", e);
-                    OperationResult::Retry(format!(
-                        "Calibration block: retrying validation ({}/{})",
-                        attempt, RETRY_MAX_ATTEMPTS
-                    ))
-                }
-            }
-        }
-
         let calibration_cypher_text = &self.forged_cypher_texts[0];
 
         let responses = (u8::MIN..=u8::MAX)
@@ -346,5 +275,75 @@ where
         }
 
         Ok(padding_error_response)
+    }
+}
+
+fn validate_while_handling_retries(
+    attempt: u64,
+    block_to_decrypt_idx: usize,
+    block_size: usize,
+    bytes_answered: usize,
+    oracle: &impl Oracle,
+    forged_cypher_text: &ForgedCypherText,
+) -> OperationResult<bool, String> {
+    if attempt > RETRY_MAX_ATTEMPTS {
+        error!(
+            target: LOG_TARGET,
+            "Block {}, byte {}: value validation failed",
+            block_to_decrypt_idx,
+            block_size - bytes_answered
+        );
+        return OperationResult::Err(format!(
+            "Block {}, byte {}: value validation failed",
+            block_to_decrypt_idx,
+            block_size - bytes_answered
+        ));
+    }
+    match oracle.ask_validation(forged_cypher_text) {
+        Ok(correct_padding) => OperationResult::Ok(correct_padding),
+        Err(e) => {
+            warn!(
+                target: LOG_TARGET,
+                "Block {}, byte {}: retrying value validation ({}/{})",
+                block_to_decrypt_idx,
+                block_size - bytes_answered,
+                attempt,
+                RETRY_MAX_ATTEMPTS
+            );
+            debug!(target: LOG_TARGET, "{:?}", e);
+            OperationResult::Retry(format!(
+                "Block {}, byte {}: retrying value validation ({}/{})",
+                block_to_decrypt_idx,
+                block_size - bytes_answered,
+                attempt,
+                RETRY_MAX_ATTEMPTS
+            ))
+        }
+    }
+}
+
+fn calibrate_while_handling_retries(
+    attempt: u64,
+    oracle: &CalibrationWebOracle,
+    forged_cypher_text: &ForgedCypherText,
+) -> OperationResult<Response, String> {
+    if attempt > RETRY_MAX_ATTEMPTS {
+        error!(target: LOG_TARGET, "Calibration block: validation failed",);
+        return OperationResult::Err("Calibration block: validation failed".to_string());
+    }
+
+    match oracle.ask_validation(forged_cypher_text) {
+        Ok(correct_padding) => OperationResult::Ok(correct_padding),
+        Err(e) => {
+            warn!(
+                target: LOG_TARGET,
+                "Calibration block: retrying validation ({}/{})", attempt, RETRY_MAX_ATTEMPTS
+            );
+            debug!(target: LOG_TARGET, "{:?}", e);
+            OperationResult::Retry(format!(
+                "Calibration block: retrying validation ({}/{})",
+                attempt, RETRY_MAX_ATTEMPTS
+            ))
+        }
     }
 }

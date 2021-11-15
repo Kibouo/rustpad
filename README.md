@@ -1,5 +1,4 @@
 # TODO:
-- block.to_ascii vs bock.to_string (for show in logs)
 - rm clones & add generics
 - add keybinds & show them
 - aspnet encoding?

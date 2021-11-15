@@ -74,6 +74,13 @@ impl Block {
     pub fn to_hex(&self) -> String {
         hex::encode(&**self)
     }
+
+    pub fn to_ascii(&self) -> String {
+        self.iter()
+            .map(|byte_value| *byte_value as char)
+            .map(|c| if c.is_ascii_control() { '.' } else { c })
+            .collect::<String>()
+    }
 }
 
 impl Display for Block {
@@ -83,7 +90,6 @@ impl Display for Block {
             "{}",
             self.iter()
                 .map(|byte_value| *byte_value as char)
-                .map(|c| if c.is_ascii_control() { '.' } else { c })
                 .collect::<String>()
         )
     }

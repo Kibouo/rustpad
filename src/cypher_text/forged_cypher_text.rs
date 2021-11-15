@@ -83,7 +83,7 @@ impl<'a> ForgedCypherText<'a> {
         }
     }
 
-    pub fn plaintext_block_solution(&self) -> Result<String> {
+    pub fn plaintext_solution(&self) -> Result<String> {
         if !self.is_answered() {
             return Err(anyhow!(
                 "Can't compute plaintext. Not all bytes of the forged block were locked"

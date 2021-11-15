@@ -69,7 +69,7 @@ impl Widgets {
                     .lock()
                     .unwrap()
                     .iter()
-                    .map(|b| Row::new([b.to_hex(), b.to_string()]))
+                    .map(|b| Row::new([b.to_hex(), b.to_ascii()]))
                     .collect(),
             ),
 
