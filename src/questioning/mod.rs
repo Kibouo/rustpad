@@ -1,8 +1,13 @@
 pub mod calibration_response;
 
-use std::{collections::HashMap, mem};
+use std::{
+    collections::HashMap,
+    mem,
+    time::{Duration, Instant},
+};
 
 use anyhow::{anyhow, Context, Result};
+use humantime::format_duration;
 use log::{debug, error, info, warn};
 use rayon::iter::{IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
 use reqwest::blocking::Response;
@@ -64,6 +69,8 @@ where
 
     /// Actually performs the oracle attack for each block.
     pub(super) fn start(&mut self, oracle: impl Oracle) -> Result<()> {
+        let now = Instant::now();
+
         self.forged_cypher_texts.par_iter_mut().try_for_each(
             |forged_cypher_text| -> Result<()> {
                 let block_to_decrypt_idx = forged_cypher_text.amount_blocks() - 1;
@@ -173,6 +180,12 @@ where
             },
         )?;
 
+        info!(
+            target: LOG_TARGET,
+            "The oracle talked some gibberish. It took {}",
+            format_duration(Duration::new(now.elapsed().as_secs(), 0))
+        );
+
         let plain_text_solution = self
             .forged_cypher_texts
             .iter()
@@ -181,7 +194,7 @@ where
         if !plain_text_solution.is_empty() {
             info!(
                 target: LOG_TARGET,
-                "The gods have spoken: {}", plain_text_solution
+                "Their divination is: {}", plain_text_solution
             );
         }
 
