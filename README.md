@@ -1,4 +1,8 @@
 # TODO:
+- block.to_ascii vs bock.to_string (for show in logs)
+- rm clones & add generics
+- add keybinds & show them
+- aspnet encoding?
 - smarter URL parsing
 - add user agent
 - specify/calc amount threads
@@ -6,12 +10,11 @@
 - noiv option (cypher text doesn't include IV)
 - caching mechanism
     - prevents having to wait again when forgetting/typo-ing a `--encrypt`
+    - resume
 - encrypt plaintext
-- error text & path it appears in
-- verbose output
+- advanced calibration specifiers
+    - response text should contain x
 - log to file
 - proxy
-- resume
-- add license
 - add marketing
     - GitHub & GitLab sync? https://dev.to/brunorobert/github-and-gitlab-sync-44mn

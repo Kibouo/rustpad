@@ -27,7 +27,7 @@ impl TuiLayout {
         let main_vertical_layout = Layout::default()
             .direction(Direction::Vertical)
             .margin(1)
-            .constraints([Constraint::Ratio(3, 4), Constraint::Ratio(1, 4)].as_ref())
+            .constraints([Constraint::Ratio(3, 5), Constraint::Ratio(2, 5)].as_ref())
             .split(full_frame_size);
 
         // main area for fancily showing decryption at work
@@ -53,7 +53,7 @@ impl TuiLayout {
         let status_panel = Layout::default()
             .direction(Direction::Vertical)
             .margin(1)
-            .constraints([Constraint::Ratio(1, 5), Constraint::Ratio(4, 5)].as_ref())
+            .constraints([Constraint::Ratio(1, 6), Constraint::Ratio(5, 6)].as_ref())
             .split(main_vertical_layout[1]);
 
         Self {

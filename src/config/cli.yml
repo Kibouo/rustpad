@@ -40,6 +40,13 @@ args:
         takes_value: true
         required: true
         # global: true
+    - verbose:
+        help: Increase verbosity
+        long_help: Increase verbosity of logging
+        short: v
+        long: verbose
+        multiple: true
+        global: true
 subcommands:
     - web:
         about: Question a web-based oracle

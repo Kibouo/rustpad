@@ -1,4 +1,5 @@
 use anyhow::Result;
+use getset::Getters;
 use reqwest::{
     blocking::Response,
     header::{self, HeaderValue},
@@ -6,11 +7,14 @@ use reqwest::{
 };
 
 /// Contains the parts of web response which are relevant to deciding whether the web server decided the padding was correct or not.
-#[derive(Hash, Eq, PartialEq, Debug, Clone)]
+#[derive(Hash, Eq, PartialEq, Debug, Clone, Getters)]
 pub struct CalibrationResponse {
+    #[getset(get = "pub")]
     status: StatusCode,
+    #[getset(get = "pub")]
     location: Option<HeaderValue>,
     content: Option<String>,
+    #[getset(get = "pub")]
     content_length: Option<u64>,
 }
 

@@ -6,5 +6,4 @@ pub enum UiUpdate {
     ForgedBlockWip((Block, usize)), // (forged block, block to decrypt idx)
     ProgressUpdate,
     SlowRedraw,
-    Done,
 }

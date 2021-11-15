@@ -3,10 +3,9 @@ pub mod ui_update;
 mod widgets;
 
 use std::{
-    cmp::min,
     io::{self},
     sync::{
-        atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
         Mutex,
     },
     thread::sleep,
@@ -14,12 +13,7 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use tui::{
-    backend::CrosstermBackend,
-    layout::Rect,
-    style::{Color, Style},
-    Terminal,
-};
+use tui::{backend::CrosstermBackend, layout::Rect, Terminal};
 
 use crate::block::{
     block_size::{BlockSize, BlockSizeTrait},
@@ -28,12 +22,11 @@ use crate::block::{
 
 use self::{layout::TuiLayout, ui_update::UiUpdate, widgets::Widgets};
 
-const FRAME_SLEEP_MS: u64 = 25;
+const FRAME_SLEEP_MS: u64 = 20;
 
 pub struct Tui {
     // the usage of a mutex here could be prevented by separating `Terminal` from `Tui`, it's only needed in the draw thread. However, the overhead of handling the mutex should be so small (especially given that only the draw thread accesses it) should be so small that it's unneeded.
     terminal: Mutex<Terminal<CrosstermBackend<io::Stdout>>>,
-    title_style: Style,
     min_width_for_horizontal_layout: u16,
 
     ui_state: UiState,
@@ -71,7 +64,6 @@ impl Tui {
         let mut terminal = Terminal::new(backend)?;
         terminal.clear().context("Failed to clear terminal view")?;
 
-        let title_style = Style::default().fg(Color::Cyan);
         let terminal_size = terminal.size().context("Failed to get terminal size")?;
 
         let amount_original_blocks = original_cypher_text_blocks.len();
@@ -79,7 +71,6 @@ impl Tui {
 
         let tui = Self {
             terminal: Mutex::new(terminal),
-            title_style,
             // enough space to display 2 tables of hex encoded blocks + padding
             min_width_for_horizontal_layout: (**block_size as usize * 12) as u16,
 
@@ -151,7 +142,8 @@ impl Tui {
             sleep(Duration::from_millis(3 * FRAME_SLEEP_MS));
         }
 
-        Ok(())
+        // 1 last draw to ensure errors are displayed
+        self.draw().context("Failed to draw UI").map(|_| ())
     }
 
     pub fn update(&self, update: UiUpdate) {
@@ -196,9 +188,6 @@ impl Tui {
                 self.ui_state.slow_redraw.store(true, Ordering::Relaxed);
                 self.ui_state.running.store(false, Ordering::Relaxed);
             }
-            UiUpdate::Done => {
-                self.ui_state.running.store(false, Ordering::Relaxed);
-            }
         }
 
         self.ui_state.redraw.store(true, Ordering::Relaxed);
@@ -212,30 +201,24 @@ impl Tui {
     fn draw(&self) -> Result<&Self> {
         self.terminal.lock().unwrap().draw(|frame| {
             let layout = TuiLayout::calculate(frame.size(), self.min_width_for_horizontal_layout);
-            let widgets = Widgets::build(self.title_style, &self.app_state);
+            let widgets = Widgets::build(&self.app_state);
 
-            frame.render_widget(widgets.outer_border().clone(), frame.size());
+            frame.render_widget(widgets.outer_border, frame.size());
 
             frame.render_widget(
-                widgets.original_cypher_text_view().clone(),
+                widgets.original_cypher_text_view,
                 *layout.original_cypher_text_area(),
             );
+            frame.render_widget(widgets.forged_block_view, *layout.forged_block_area());
             frame.render_widget(
-                widgets.forged_block_view().clone(),
-                *layout.forged_block_area(),
-            );
-            frame.render_widget(
-                widgets.intermediate_block_view().clone(),
+                widgets.intermediate_block_view,
                 *layout.intermediate_block_area(),
             );
-            frame.render_widget(widgets.plaintext_view().clone(), *layout.plaintext_area());
+            frame.render_widget(widgets.plaintext_view, *layout.plaintext_area());
 
-            frame.render_widget(
-                widgets.status_panel_border().clone(),
-                *layout.status_panel_area(),
-            );
-            frame.render_widget(widgets.progress_bar().clone(), *layout.progress_bar_area());
-            frame.render_widget(widgets.logs_view().clone(), *layout.logs_area());
+            frame.render_widget(widgets.status_panel_border, *layout.status_panel_area());
+            frame.render_widget(widgets.progress_bar, *layout.progress_bar_area());
+            frame.render_widget(widgets.logs_view, *layout.logs_area());
         })?;
 
         Ok(self)

@@ -7,35 +7,30 @@ use tui::{
     text::Span,
     widgets::{Block, Borders, Gauge, Row, Table},
 };
+use tui_logger::TuiLoggerWidget;
 
 use super::AppState;
 
 #[derive(Getters)]
 pub(super) struct Widgets {
-    #[getset(get = "pub")]
-    outer_border: Block<'static>,
+    pub outer_border: Block<'static>,
 
     // decryption panel
-    #[getset(get = "pub")]
-    original_cypher_text_view: Table<'static>,
-    #[getset(get = "pub")]
-    forged_block_view: Table<'static>,
-    #[getset(get = "pub")]
-    intermediate_block_view: Table<'static>,
-    #[getset(get = "pub")]
-    plaintext_view: Table<'static>,
+    pub original_cypher_text_view: Table<'static>,
+    pub forged_block_view: Table<'static>,
+    pub intermediate_block_view: Table<'static>,
+    pub plaintext_view: Table<'static>,
 
     // status panel
-    #[getset(get = "pub")]
-    status_panel_border: Block<'static>,
-    #[getset(get = "pub")]
-    progress_bar: Gauge<'static>,
-    #[getset(get = "pub")]
-    logs_view: Block<'static>,
+    pub status_panel_border: Block<'static>,
+    pub progress_bar: Gauge<'static>,
+    pub logs_view: TuiLoggerWidget<'static>,
 }
 
 impl Widgets {
-    pub(super) fn build(title_style: Style, app_state: &AppState) -> Widgets {
+    pub(super) fn build(app_state: &AppState) -> Widgets {
+        let title_style = Style::default().fg(Color::Cyan);
+
         Widgets {
             outer_border: build_outer_border(title_style),
 
@@ -173,12 +168,18 @@ fn build_progress_bar(progress: u8) -> Gauge<'static> {
         .use_unicode(true)
 }
 
-fn build_log_view(title_style: Style) -> Block<'static> {
+fn build_log_view(title_style: Style) -> TuiLoggerWidget<'static> {
     let title = {
         let mut title = Span::from("Log");
         title.style = title_style;
         title
     };
 
-    Block::default().title(title).borders(Borders::NONE)
+    TuiLoggerWidget::default()
+        .block(Block::default().title(title).borders(Borders::NONE))
+        .style_error(Style::default().fg(Color::Red))
+        .style_warn(Style::default().fg(Color::Yellow))
+        .style_info(Style::default().fg(Color::LightBlue))
+        .style_debug(Style::default().fg(Color::LightGreen))
+        .style_trace(Style::default().fg(Color::White))
 }

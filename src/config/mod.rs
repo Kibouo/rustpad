@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use clap::{load_yaml, App, ArgMatches};
 use getset::{Getters, MutGetters, Setters};
+use log::LevelFilter;
 
 use crate::{
     block::block_size::BlockSize, oracle::oracle_location::OracleLocation,
@@ -19,6 +20,8 @@ pub struct Config {
     block_size: BlockSize,
     #[getset(get = "pub")]
     no_iv: bool,
+    #[getset(get = "pub")]
+    log_level: LevelFilter,
     // sub-commands options
     #[getset(get = "pub", get_mut = "pub")]
     sub_config: SubConfig,
@@ -71,6 +74,11 @@ impl Config {
             .value_of("block_size")
             .expect("No required argument `block_size` found")
             .into();
+        let log_level = match args.occurrences_of("verbose") {
+            0 => LevelFilter::Info,
+            1 => LevelFilter::Debug,
+            _ => LevelFilter::Trace,
+        };
         let sub_command = args
             .subcommand_name()
             .expect("No required sub-command found");
@@ -82,6 +90,7 @@ impl Config {
                     oracle_location,
                     cypher_text,
                     block_size,
+                    log_level,
                     sub_command,
                     sub_command_args,
                 )
@@ -92,6 +101,7 @@ impl Config {
                     oracle_location,
                     cypher_text,
                     block_size,
+                    log_level,
                     sub_command,
                     sub_command_args,
                 )
@@ -105,6 +115,7 @@ fn parse_as_web(
     oracle_location: &str,
     cypher_text: &str,
     block_size: BlockSize,
+    log_level: LevelFilter,
     sub_command: &str,
     args: &ArgMatches,
 ) -> Result<Config> {
@@ -148,6 +159,7 @@ fn parse_as_web(
         oracle_location: OracleLocation::new(oracle_location, sub_command)?,
         cypher_text: cypher_text.to_string(),
         block_size,
+        log_level,
         // all blocks, except the 0-th which is the IV, are to be decrypted.
         no_iv: false,
         sub_config: SubConfig::Web(web_config),
@@ -158,6 +170,7 @@ fn parse_as_script(
     oracle_location: &str,
     cypher_text: &str,
     block_size: BlockSize,
+    log_level: LevelFilter,
     sub_command: &str,
     _args: &ArgMatches,
 ) -> Result<Config> {
@@ -165,6 +178,7 @@ fn parse_as_script(
         oracle_location: OracleLocation::new(oracle_location, sub_command)?,
         cypher_text: cypher_text.to_string(),
         block_size,
+        log_level,
         // all blocks, except the 0-th which is the IV, are to be decrypted.
         // This could change with a "noiv" option
         no_iv: false,

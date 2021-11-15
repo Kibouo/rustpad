@@ -59,49 +59,6 @@ impl Block {
         Ok(self)
     }
 
-    pub fn increment_byte(&mut self, idx: usize) -> Result<&mut Self> {
-        match self {
-            Block::Eight(data) => {
-                if idx < 8 {
-                    // error instead of wrap around to 0 as wrapping could introduce infinite loops
-                    if data[idx] == u8::MAX {
-                        return Err(anyhow!(
-                            "Can't increment byte {} without overflowing",
-                            idx + 1
-                        ));
-                    }
-
-                    data[idx] += 1;
-                } else {
-                    return Err(anyhow!(
-                        "Tried to increment byte {} of 8-byte block",
-                        idx + 1
-                    ));
-                }
-            }
-            Block::Sixteen(data) => {
-                if idx < 16 {
-                    // error instead of wrap around to 0 as wrapping could introduce infinite loops
-                    if data[idx] == u8::MAX {
-                        return Err(anyhow!(
-                            "Can't increment byte {} without overflowing",
-                            idx + 1
-                        ));
-                    }
-
-                    data[idx] += 1;
-                } else {
-                    return Err(anyhow!(
-                        "Tried to increment byte {} of 16-byte block",
-                        idx + 1
-                    ));
-                }
-            }
-        }
-
-        Ok(self)
-    }
-
     // adjust bytes to produce the new correct padding.
     // Due to xor's working, this cannot be done as a simple +1 in byte value. We must use xor's commutative property.
     pub fn adjust_for_incremented_padding(&mut self, new_pad_size: u8) -> &mut Self {

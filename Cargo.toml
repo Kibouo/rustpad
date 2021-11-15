@@ -19,3 +19,6 @@ tui = { version = "0.16", default-features = false, features = ["crossterm"] }
 crossterm = "0.22"
 getset = "0.1"
 crossbeam = "0.8"
+tui-logger = "0.6"
+log = "0.4"
+retry = "1.3"
