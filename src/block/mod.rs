@@ -78,7 +78,13 @@ impl Block {
     pub fn to_ascii(&self) -> String {
         self.iter()
             .map(|byte_value| *byte_value as char)
-            .map(|c| if c.is_ascii_control() { '.' } else { c })
+            .map(|c| {
+                if !c.is_ascii() || c.is_ascii_control() {
+                    '.'
+                } else {
+                    c
+                }
+            })
             .collect::<String>()
     }
 }

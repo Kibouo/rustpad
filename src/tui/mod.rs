@@ -168,6 +168,7 @@ impl Tui {
                 let plaintext = &intermediate
                     ^ &self.app_state.original_cypher_text_blocks[block_to_decrypt_idx - 1];
 
+                // `try_lock` as updating isn't critical. This is mainly for visuals
                 if let Ok(mut blocks) = self.app_state.forged_blocks.try_lock() {
                     blocks[block_to_decrypt_idx - 1] = forged_block;
                 }

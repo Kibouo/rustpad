@@ -2,7 +2,7 @@ pub mod calibration_response;
 
 use std::{collections::HashMap, mem};
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use log::{debug, error, info, warn};
 use rayon::iter::{IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
 use reqwest::blocking::Response;
@@ -105,7 +105,7 @@ where
                                 debug!(
                                     target: LOG_TARGET,
                                     "Block {}, byte {}: solved!",
-                                    block_to_decrypt_idx,
+                                    block_to_decrypt_idx + 1,
                                     block_size - bytes_answered,
                                 );
 
@@ -114,7 +114,7 @@ where
                             } else {
                                 Err(anyhow!(
                                     "Block {}, byte {}: padding invalid. Forged block was: {:?}",
-                                    block_to_decrypt_idx,
+                                    block_to_decrypt_idx + 1,
                                     block_size - bytes_answered,
                                     forged_cypher_text.forged_block_wip()
                                 ))
@@ -124,35 +124,21 @@ where
 
                     match current_byte_solution {
                         Some(current_solution) => {
-                            match current_solution {
-                                Ok(mut current_solution) => {
-                                    // Swap the default prepared forged cypher text with the solved one. Given that we're iterating, this is basically a `map` operation. However, doing a map would require to deref, and thus clone, each value as well as collect, i.e. allocate, everything. This is just much easier.
-                                    mem::swap(forged_cypher_text, &mut current_solution);
+                            let mut current_solution = current_solution.context(format!(
+                                "Block {}, byte {}: decryption failed",
+                                block_to_decrypt_idx + 1,
+                                block_size - bytes_answered
+                            ))?;
 
-                                    bytes_answered += 1;
-                                    attempts_to_solve_byte = 1;
-                                    (self.update_ui_callback.clone())(UiUpdate::ProgressUpdate);
-                                }
-                                // handle errors from the validation checks above
-                                Err(e) => error!(
-                                    target: LOG_TARGET,
-                                    "{:?}",
-                                    e.context(format!(
-                                        "Block {}, byte {}: decryption failed",
-                                        block_to_decrypt_idx + 1,
-                                        block_size - bytes_answered
-                                    ))
-                                ),
-                            };
+                            // Swap the default prepared forged cypher text with the solved one. Given that we're iterating, this is basically a `map` operation. However, doing a map would require to deref, and thus clone, each value as well as collect, i.e. allocate, everything. This is just much easier.
+                            mem::swap(forged_cypher_text, &mut current_solution);
+
+                            bytes_answered += 1;
+                            attempts_to_solve_byte = 1;
+                            (self.update_ui_callback.clone())(UiUpdate::ProgressUpdate);
                         }
                         None => {
                             if attempts_to_solve_byte > RETRY_MAX_ATTEMPTS {
-                                error!(
-                                    target: LOG_TARGET,
-                                    "Block {}, byte {}: decryption failed",
-                                    block_to_decrypt_idx + 1,
-                                    block_size - bytes_answered
-                                );
                                 return Err(anyhow!(
                                     "Block {}, byte {}: decryption failed",
                                     block_to_decrypt_idx + 1,
@@ -175,7 +161,8 @@ where
 
                 info!(
                     target: LOG_TARGET,
-                    "Block {}: solved!", block_to_decrypt_idx,
+                    "Block {}: solved!",
+                    block_to_decrypt_idx + 1,
                 );
                 (self.update_ui_callback.clone())(UiUpdate::ForgedBlock((
                     forged_cypher_text.forged_block_solution().clone(),
@@ -236,13 +223,7 @@ where
                 CalibrationResponse::from_response(response, *oracle.config().consider_body())
             })
             .collect::<Result<Vec<_>>>()
-            .map_err(|e| {
-                error!(
-                    target: LOG_TARGET,
-                    "Failed to request web server for calibration"
-                );
-                e
-            })?;
+            .context("Failed to request web server for calibration")?;
 
         // false positive, the hashmap's key (`response`) is obviously not mutable
         #[allow(clippy::mutable_key_type)]
@@ -294,16 +275,9 @@ fn validate_while_handling_retries(
     forged_cypher_text: &ForgedCypherText,
 ) -> OperationResult<bool, String> {
     if attempt > RETRY_MAX_ATTEMPTS {
-        error!(
-            target: LOG_TARGET,
-            "Block {}, byte {}, value {}: validation failed",
-            block_to_decrypt_idx,
-            block_size - bytes_answered,
-            byte_value
-        );
         return OperationResult::Err(format!(
             "Block {}, byte {}, value {}: validation failed",
-            block_to_decrypt_idx,
+            block_to_decrypt_idx + 1,
             block_size - bytes_answered,
             byte_value
         ));
@@ -314,7 +288,7 @@ fn validate_while_handling_retries(
             warn!(
                 target: LOG_TARGET,
                 "Block {}, byte {}, value {}: retrying validation ({}/{})",
-                block_to_decrypt_idx,
+                block_to_decrypt_idx + 1,
                 block_size - bytes_answered,
                 byte_value,
                 attempt,
@@ -323,7 +297,7 @@ fn validate_while_handling_retries(
             debug!(target: LOG_TARGET, "{:?}", e);
             OperationResult::Retry(format!(
                 "Block {}, byte {}, value {}: retrying validation ({}/{})",
-                block_to_decrypt_idx,
+                block_to_decrypt_idx + 1,
                 block_size - bytes_answered,
                 byte_value,
                 attempt,
@@ -340,10 +314,6 @@ fn calibrate_while_handling_retries(
     forged_cypher_text: &ForgedCypherText,
 ) -> OperationResult<Response, String> {
     if attempt > RETRY_MAX_ATTEMPTS {
-        error!(
-            target: LOG_TARGET,
-            "Calibration block, value {}: validation failed", byte_value
-        );
         return OperationResult::Err(format!(
             "Calibration block, value {}: validation failed",
             byte_value

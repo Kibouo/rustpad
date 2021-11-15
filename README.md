@@ -1,5 +1,4 @@
 # TODO:
-- rm clones & add generics
 - add keybinds & show them
 - aspnet encoding?
 - smarter URL parsing
