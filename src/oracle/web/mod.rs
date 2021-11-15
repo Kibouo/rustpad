@@ -72,7 +72,7 @@ impl Oracle for WebOracle {
             &self.url,
             &self.config,
             self.keyword_locations.iter(),
-            &cypher_text.encode(),
+            &cypher_text.encode()?,
         )
         .context("Replacing all occurrences of keyword failed")?;
 

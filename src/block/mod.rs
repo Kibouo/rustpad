@@ -59,16 +59,17 @@ impl Block {
         Ok(self)
     }
 
-    // adjust bytes to produce the new correct padding.
-    // Due to xor's working, this cannot be done as a simple +1 in byte value. We must use xor's commutative property.
-    pub fn adjust_for_incremented_padding(&mut self, new_pad_size: u8) -> &mut Self {
-        let old_pad_size = new_pad_size - 1;
-        let xor_diff = old_pad_size ^ new_pad_size;
+    /// Clone this block and adjusts bytes to produce the correct padding
+    /// Due to xor's working, this cannot be done as a simple +1 in byte value. We must use xor's commutative property.
+    pub fn to_adjusted_for_padding(&self, pad_size: u8) -> Self {
+        let mut adjusted_block = self.clone();
 
-        for i in self.len() - (old_pad_size as usize)..self.len() {
-            self[i] ^= xor_diff;
+        for i in self.len() - (pad_size as usize)..self.len() {
+            adjusted_block[i] ^= (self.len() - i) as u8; // get actual padding out
+            adjusted_block[i] ^= pad_size; // put WIP padding in
         }
-        self
+
+        adjusted_block
     }
 
     pub fn to_hex(&self) -> String {

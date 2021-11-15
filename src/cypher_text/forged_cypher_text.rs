@@ -67,11 +67,6 @@ impl<'a> ForgedCypherText<'a> {
                     self.current_byte_idx = None;
                 } else {
                     self.current_byte_idx = Some(idx - 1);
-
-                    // PKCS5/7 padding's value is the same as its length. So the desired padding when testing for the last byte is 0x01. But when testing the 2nd last byte, the last byte must be 0x02. This means that when moving on to the next byte (right to left), all of the previous bytes' solutions must be adjusted.
-                    let block_size = *self.block_size();
-                    self.forged_block_wip
-                        .adjust_for_incremented_padding(block_size - (idx - 1));
                 }
 
                 Ok(self)
@@ -109,12 +104,23 @@ impl<'a> ForgedCypherText<'a> {
 impl<'a> Encode<'a> for ForgedCypherText<'a> {
     type Blocks = &'a [Block];
 
-    fn encode(&'a self) -> String {
+    fn encode(&'a self) -> Result<String> {
         let prefix_blocks = &self.blocks()[..self.amount_blocks() - 2];
         let to_decrypt_block = &self.blocks()[self.amount_blocks() - 1];
 
+        // PKCS5/7 padding's value is the same as its length. So the desired padding when testing for the last byte is 0x01. But when testing the 2nd last byte, the last byte must be 0x02. This means that when moving on to the next byte (right to left), all of the previous bytes' solutions must be adjusted.
+        let current_byte_idx = self.current_byte_idx.ok_or_else(|| {
+            anyhow!(
+                "Locked all bytes already! Current forged block layout: {:?}",
+                self.forged_block_wip
+            )
+        })?;
+        let forged_block_with_padding_adjusted = self
+            .forged_block_wip
+            .to_adjusted_for_padding(*self.block_size() - current_byte_idx as u8);
+
         let raw_bytes: Vec<u8> = prefix_blocks.iter()
-            .chain([&self.forged_block_wip].into_iter())
+            .chain([&forged_block_with_padding_adjusted].into_iter())
             .chain([to_decrypt_block].into_iter())
             .map(|block| &**block)
             .flatten()
@@ -129,9 +135,9 @@ impl<'a> Encode<'a> for ForgedCypherText<'a> {
         };
 
         if self.url_encoded() {
-            urlencoding::encode(&encoded_data).to_string()
+            Ok(urlencoding::encode(&encoded_data).to_string())
         } else {
-            encoded_data
+            Ok(encoded_data)
         }
     }
 

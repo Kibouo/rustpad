@@ -36,7 +36,7 @@ impl CypherText {
 impl<'a> Encode<'a> for CypherText {
     type Blocks = &'a [Block];
 
-    fn encode(&'a self) -> String {
+    fn encode(&'a self) -> Result<String> {
         let raw_bytes: Vec<u8> = self
         .blocks()
         .iter()
@@ -53,9 +53,9 @@ impl<'a> Encode<'a> for CypherText {
         };
 
         if self.url_encoded() {
-            urlencoding::encode(&encoded_data).to_string()
+            Ok(urlencoding::encode(&encoded_data).to_string())
         } else {
-            encoded_data
+            Ok(encoded_data)
         }
     }
 
