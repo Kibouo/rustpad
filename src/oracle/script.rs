@@ -51,7 +51,7 @@ impl Oracle for ScriptOracle {
                 cypher_text.encode()
             ))
             .status()
-            .context(format!("Failed to run script: {}", self.path.display()))?;
+            .context(format!("Script execution failed: {}", self.path.display()))?;
 
         Ok(status.success())
     }

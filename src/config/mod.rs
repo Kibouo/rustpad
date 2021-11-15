@@ -129,7 +129,7 @@ fn parse_as_web(
                     .split_once(':')
                     .map(|(l, r)| (l.to_owned(), r.to_owned()));
                 split_header.context(format!(
-                    "Invalid header format! Expected 'HeaderName: HeaderValue', got '{}'.",
+                    "Header format invalid! Expected 'HeaderName: HeaderValue', got '{}'.",
                     header
                 ))
             })

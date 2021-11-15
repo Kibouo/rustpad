@@ -14,19 +14,19 @@ impl OracleLocation {
         match oracle_type {
             "web" => Ok(Self::Web(
                 Url::try_from(oracle_location)
-                    .context(format!("Invalid URL format: {}", oracle_location))?,
+                    .context(format!("URL format invalid: {}", oracle_location))?,
             )),
             "script" => {
                 let path = PathBuf::from(oracle_location);
                 return if !path.is_file() {
-                    Err(anyhow!("Invalid file path: {}", oracle_location))
+                    Err(anyhow!("Path does not point to file: {}", oracle_location))
                 } else if !path.is_executable() {
-                    Err(anyhow!("Can't execute file at {}", oracle_location))
+                    Err(anyhow!("Can't execute file: {}", oracle_location))
                 } else {
                     Ok(Self::Script(path))
                 };
             }
-            _ => unreachable!(format!("Invalid sub-command: {}", oracle_type)),
+            _ => unreachable!(format!("Sub-command invalid: {}", oracle_type)),
         }
     }
 }

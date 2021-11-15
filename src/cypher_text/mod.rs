@@ -107,7 +107,7 @@ fn decode(input_data: &str) -> Result<(Vec<u8>, Encoding)> {
 fn split_into_blocks(decoded_data: &[u8], block_size: BlockSize) -> Result<Vec<Block>> {
     if decoded_data.len() % (*block_size as usize) != 0 {
         return Err(anyhow!(
-            "Failed to split cypher text into blocks of size {}",
+            "Splitting cypher text into blocks of size {} failed",
             *block_size
         ));
     }

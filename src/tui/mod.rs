@@ -62,9 +62,9 @@ impl Tui {
         let stdout = io::stdout();
         let backend = CrosstermBackend::new(stdout);
         let mut terminal = Terminal::new(backend)?;
-        terminal.clear().context("Failed to clear terminal view")?;
+        terminal.clear().context("Clearing terminal failed")?;
 
-        let terminal_size = terminal.size().context("Failed to get terminal size")?;
+        let terminal_size = terminal.size().context("Getting terminal size failed")?;
 
         let amount_original_blocks = original_cypher_text_blocks.len();
         let default_blocks = vec![Block::new(block_size); amount_original_blocks - 1];
@@ -116,10 +116,10 @@ impl Tui {
                 .lock()
                 .unwrap()
                 .size()
-                .context("Failed to get terminal size")?;
+                .context("Getting terminal size failed")?;
 
             if self.need_redraw(&terminal_size) {
-                self.draw().context("Failed to draw UI")?;
+                self.draw().context("Drawing UI failed")?;
                 self.ui_state.redraw.store(false, Ordering::Relaxed);
                 *self.ui_state.previous_terminal_size.lock().unwrap() = terminal_size;
             }
@@ -134,16 +134,16 @@ impl Tui {
                 .lock()
                 .unwrap()
                 .size()
-                .context("Failed to get terminal size")?;
+                .context("Getting terminal size failed")?;
 
-            self.draw().context("Failed to draw UI")?;
+            self.draw().context("Drawing UI failed")?;
             *self.ui_state.previous_terminal_size.lock().unwrap() = terminal_size;
 
             sleep(Duration::from_millis(3 * FRAME_SLEEP_MS));
         }
 
         // 1 last draw to ensure errors are displayed
-        self.draw().context("Failed to draw UI").map(|_| ())
+        self.draw().context("Drawing UI failed").map(|_| ())
     }
 
     pub fn update(&self, update: UiUpdate) {

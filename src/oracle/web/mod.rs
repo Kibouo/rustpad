@@ -56,9 +56,7 @@ impl Oracle for WebOracle {
             client_builder = client_builder.redirect(Policy::none());
         }
 
-        let web_client = client_builder
-            .build()
-            .context("Failed to setup web client")?;
+        let web_client = client_builder.build().context("Web client setup failed")?;
 
         let oracle = Self {
             url: url.to_owned(),
@@ -76,7 +74,7 @@ impl Oracle for WebOracle {
             self.keyword_locations.iter(),
             &cypher_text.encode(),
         )
-        .context("Failed to replace all occurrences of the keyword")?;
+        .context("Replacing all occurrences of keyword failed")?;
 
         let request = if self.config.post_data().is_none() {
             self.web_client.get(url)
@@ -89,10 +87,10 @@ impl Oracle for WebOracle {
             None => request,
         };
 
-        let response = request.send().context("Failed to send request")?;
+        let response = request.send().context("Sending request failed")?;
         let response = CalibrationResponse::from_response(response, *self.config.consider_body())?;
 
-        let padding_error_response = self.config.padding_error_response().as_ref().ok_or_else(|| anyhow!("Web oracle was not calibrated. We don't know how an (in)correct padding response looks like"))?;
+        let padding_error_response = self.config.padding_error_response().as_ref().ok_or_else(|| anyhow!("Web oracle not calibrated. We don't know how an (in)correct padding response looks like"))?;
 
         Ok(response != *padding_error_response)
     }
@@ -144,7 +142,7 @@ fn replace_keyword_occurrences<'a>(
             KeywordLocation::Headers(headers_with_keyword) => {
                 headers = Some(
                     replace_keyword_in_headers(config, headers_with_keyword, encoded_cypher_text)
-                        .context("Failed to parse headers")?,
+                        .context("Parsing headers failed")?,
                 );
             }
         }
@@ -154,7 +152,7 @@ fn replace_keyword_occurrences<'a>(
     if headers.is_none() {
         headers = Some(
             replace_keyword_in_headers(config, &HashMap::new(), encoded_cypher_text)
-                .context("Failed to parse headers")?,
+                .context("Parsing headers failed")?,
         );
     }
 
@@ -197,8 +195,8 @@ fn replace_keyword_in_headers(
             };
 
             Ok((
-                header_name.context(format!("Invalid header name: {}", name))?,
-                header_value.context(format!("Invalid header value: {}", value))?,
+                header_name.context(format!("Header name invalid: {}", name))?,
+                header_value.context(format!("Header value invalid: {}", value))?,
             ))
         })
         .collect::<Result<_>>()

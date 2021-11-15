@@ -67,7 +67,7 @@ fn main() -> Result<()> {
         cypher_text.blocks().to_vec(),
         *config.no_iv(),
     )
-    .context("Failed to create terminal UI")?;
+    .context("TUI creation failed")?;
     init_logging(*config.log_level())?;
 
     let update_ui_callback = |update| tui.update(update);

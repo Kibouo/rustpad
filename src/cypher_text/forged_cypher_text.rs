@@ -25,7 +25,7 @@ impl<'a> ForgedCypherText<'a> {
     ) -> Result<Self> {
         if block_to_decrypt_idx + 1 > cypher_text.amount_blocks() {
             return Err(anyhow!(
-                "Can't create a ForgedCypherText for block {}, with only {} blocks existing in the original",
+                "Tried to create ForgedCypherText for block {}, with only {} blocks existing in the original",
                 block_to_decrypt_idx + 1,
                 cypher_text.amount_blocks()
             ));
@@ -49,7 +49,7 @@ impl<'a> ForgedCypherText<'a> {
     pub fn set_current_byte(&mut self, value: u8) -> Result<&mut Self> {
         let byte_idx = self
             .current_byte_idx
-            .ok_or_else(|| anyhow!("Can't change bytes after they're all locked"))?;
+            .ok_or_else(|| anyhow!("Changing bytes failed. They're all locked already"))?;
 
         self.forged_block_wip.set_byte(byte_idx as usize, value)?;
 
@@ -77,7 +77,7 @@ impl<'a> ForgedCypherText<'a> {
                 Ok(self)
             }
             None => Err(anyhow!(
-                "Already locked all bytes! Current forged block layout: {:?}",
+                "Locked all bytes already! Current forged block layout: {:?}",
                 self.forged_block_wip
             )),
         }
@@ -86,7 +86,7 @@ impl<'a> ForgedCypherText<'a> {
     pub fn plaintext_solution(&self) -> Result<String> {
         if !self.is_answered() {
             return Err(anyhow!(
-                "Can't compute plaintext. Not all bytes of the forged block were locked"
+                "Plain text computation failed. Not all bytes of the forged block were locked"
             ));
         }
 

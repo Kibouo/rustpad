@@ -56,9 +56,7 @@ impl CalibrationWebOracle {
             client_builder = client_builder.redirect(Policy::none());
         }
 
-        let web_client = client_builder
-            .build()
-            .context("Failed to setup web client")?;
+        let web_client = client_builder.build().context("Web client setup failed")?;
 
         let oracle = Self {
             url: url.to_owned(),
@@ -76,7 +74,7 @@ impl CalibrationWebOracle {
             self.keyword_locations.iter(),
             &cypher_text.encode(),
         )
-        .context("Failed to replace all occurrences of the keyword")?;
+        .context("Replacing all occurrences of keyword failed")?;
 
         let request = if self.config.post_data().is_none() {
             self.web_client.get(url)
@@ -89,6 +87,6 @@ impl CalibrationWebOracle {
             None => request,
         };
 
-        request.send().context("Failed to send request")
+        request.send().context("Sending request failed")
     }
 }
