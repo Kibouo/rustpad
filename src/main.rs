@@ -2,7 +2,9 @@ mod block;
 mod config;
 mod cypher_text;
 mod logging;
+mod mediator;
 mod oracle;
+mod other;
 mod questioning;
 mod tui;
 
@@ -34,12 +36,12 @@ fn decrypt_main(
     match config.oracle_location() {
         OracleLocation::Web(_) => {
             info!(target: LOG_TARGET, "Using web oracle");
-            let mut questioning =
-                Questioning::prepare(update_ui_callback, &cypher_text, *config.no_iv())?;
+            let mut questioning = Questioning::prepare(update_ui_callback, &cypher_text)?;
 
+            let mediator = questioning.request_mediator();
             let calibration_oracle =
                 CalibrationWebOracle::visit(config.oracle_location(), config.sub_config())?;
-            let padding_error_response = questioning.calibrate_web_oracle(calibration_oracle)?;
+            let padding_error_response = mediator.calibrate_web_oracle(calibration_oracle)?;
 
             if let SubConfig::Web(web_config) = config.sub_config_mut() {
                 web_config.set_padding_error_response(Some(padding_error_response));
@@ -51,7 +53,7 @@ fn decrypt_main(
         OracleLocation::Script(_) => {
             info!(target: LOG_TARGET, "Using script oracle");
             let oracle = ScriptOracle::visit(config.oracle_location(), config.sub_config())?;
-            Questioning::prepare(update_ui_callback, &cypher_text, *config.no_iv())?.start(oracle)
+            Questioning::prepare(update_ui_callback, &cypher_text)?.start(oracle)
         }
     }
 }
@@ -60,12 +62,8 @@ fn main() -> Result<()> {
     let config = Config::parse()?;
     let cypher_text = CypherText::parse(config.cypher_text(), config.block_size())?;
 
-    let tui = Tui::new(
-        config.block_size(),
-        cypher_text.blocks().to_vec(),
-        *config.no_iv(),
-    )
-    .context("TUI creation failed")?;
+    let tui = Tui::new(config.block_size(), cypher_text.blocks().to_vec())
+        .context("TUI creation failed")?;
     init_logging(*config.log_level())?;
 
     let update_ui_callback = |event| tui.handle_application_event(event);

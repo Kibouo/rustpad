@@ -31,7 +31,7 @@ use self::{layout::TuiLayout, ui_update::UiEvent, widgets::Widgets};
 
 const FRAME_SLEEP_MS: u64 = 20;
 
-pub struct Tui {
+pub(super) struct Tui {
     // the usage of a mutex here could be prevented by separating `Terminal` from `Tui`, it's only needed in the draw thread. However, the overhead of handling the mutex should be so small (especially given that only the draw thread accesses it) should be so small that it's unneeded.
     terminal: Mutex<Terminal<CrosstermBackend<io::Stdout>>>,
     min_width_for_horizontal_layout: u16,
@@ -51,7 +51,6 @@ struct UiState {
 
 struct AppState {
     original_cypher_text_blocks: Vec<Block>,
-    no_iv: bool,
 
     // for progress calculation
     bytes_to_finish: usize,
@@ -63,10 +62,9 @@ struct AppState {
 }
 
 impl Tui {
-    pub fn new(
+    pub(super) fn new(
         block_size: &BlockSize,
         original_cypher_text_blocks: Vec<Block>,
-        no_iv: bool,
     ) -> Result<Self> {
         enable_raw_mode()?;
 
@@ -94,7 +92,6 @@ impl Tui {
 
             app_state: AppState {
                 original_cypher_text_blocks,
-                no_iv,
 
                 bytes_to_finish: (amount_original_blocks - 1) * (**block_size as usize),
                 bytes_finished: AtomicUsize::new(0),
@@ -120,7 +117,7 @@ impl Tui {
         Ok(tui)
     }
 
-    pub fn exit(&self, exit_code: i32) {
+    pub(super) fn exit(&self, exit_code: i32) {
         disable_raw_mode().expect("Disabling raw terminal mode failed");
         self.terminal
             .lock()
@@ -130,7 +127,7 @@ impl Tui {
         process::exit(exit_code);
     }
 
-    pub fn main_loop(&self) -> Result<()> {
+    pub(super) fn main_loop(&self) -> Result<()> {
         while self.ui_state.running.load(Ordering::Relaxed) {
             self.handle_user_event()?;
 
@@ -150,7 +147,7 @@ impl Tui {
         self.draw().context("Drawing UI failed").map(|_| ())
     }
 
-    pub fn handle_application_event(&self, event: UiEvent) {
+    pub(super) fn handle_application_event(&self, event: UiEvent) {
         match event {
             UiEvent::ForgedBlockUpdate((forged_block, block_to_decrypt_idx)) => {
                 let intermediate =

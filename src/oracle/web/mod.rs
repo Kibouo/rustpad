@@ -13,7 +13,7 @@ use reqwest::{
 use crate::{
     config::{SubConfig, WebConfig},
     cypher_text::encode::Encode,
-    questioning::calibration_response::CalibrationResponse,
+    mediator::calibration_response::CalibrationResponse,
 };
 
 use super::{oracle_location::OracleLocation, Oracle};
