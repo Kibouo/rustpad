@@ -23,7 +23,7 @@ impl Oracle for ScriptOracle {
             }
         };
 
-        let config = match oracle_config {
+        let oracle_config = match oracle_config {
             SubConfig::Script(config) => config,
             SubConfig::Web(_) => {
                 return Err(anyhow!(
@@ -34,7 +34,7 @@ impl Oracle for ScriptOracle {
 
         let oracle = Self {
             path: path.to_path_buf(),
-            _config: config.clone(),
+            _config: oracle_config.clone(),
         };
         Ok(oracle)
     }

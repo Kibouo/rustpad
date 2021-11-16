@@ -8,6 +8,9 @@ use crate::{
     questioning::calibration_response::CalibrationResponse,
 };
 
+const VERSION_TEMPLATE: &str = "<version>";
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 /// Native struct for CLI args.
 // Why: because `Clap::ArgMatches` is underlying a `HashMap`, and accessing requires passing strings and error checking. That's ugly.
 #[derive(Debug, Getters, MutGetters)]
@@ -42,6 +45,8 @@ pub struct WebConfig {
     headers: Vec<(String, String)>,
     #[getset(get = "pub")]
     keyword: String,
+    #[getset(get = "pub")]
+    user_agent: String,
 
     // flags
     #[getset(get = "pub")]
@@ -147,6 +152,10 @@ fn parse_as_web(
             None => Vec::new(),
         },
         keyword: keyword.into(),
+        user_agent: args
+            .value_of("user_agent")
+            .map(|d| d.replace(VERSION_TEMPLATE, VERSION))
+            .expect("No default value for argument `user_agent`"),
 
         redirect: args.value_of("redirect").is_some(),
         insecure: args.value_of("insecure").is_some(),

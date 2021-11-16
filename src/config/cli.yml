@@ -18,7 +18,7 @@ args:
         long_help: "The oracle to question with forged cypher texts. This can be a URL or a shell script.
 
         See the subcommands `web --help` and `script --help` respectively for further help."
-        short: o
+        short: O
         long: oracle
         takes_value: true
         required: true
@@ -27,15 +27,15 @@ args:
         help: Original cypher text
         long_help: Original cypher text received from the target service
         aliases: ctext
-        short: t
-        long: cypher_text
+        short: C
+        long: cypher-text
         takes_value: true
         required: true
         # global: true
     - block_size:
         help: Block size used by the cypher
-        short: b
-        long: block_size
+        short: B
+        long: block-size
         possible_values: [ "8", "16" ]
         takes_value: true
         required: true
@@ -84,7 +84,7 @@ subcommands:
             - keyword:
                 help: Keyword indicating the cypher text
                 long_help: This keyword indicates the location of the cypher text in the HTTP request. It is replaced by the cypher text's value at runtime
-                short: w
+                short: K
                 long: keyword
                 default_value: CTEXT
                 takes_value: true
@@ -93,8 +93,15 @@ subcommands:
                 long_help: Consider the response body and content length when determining how the web oracle responds to (in)correct padding
                 aliases: consider_content
                 short: c
-                long: consider_body
+                long: consider-body
                 takes_value: false
+            - user_agent:
+                help: User-agent to identify with
+                short: A
+                long: user-agent
+                # `<version>` is replaced in config parsing to show correct version
+                default_value: rustpad/<version>
+                takes_value: true
 
     - script:
         about: Question a script-based oracle

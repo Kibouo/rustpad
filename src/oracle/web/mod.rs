@@ -34,7 +34,7 @@ impl Oracle for WebOracle {
             }
         };
 
-        let config = match oracle_config {
+        let oracle_config = match oracle_config {
             SubConfig::Web(config) => config,
             SubConfig::Script(_) => {
                 return Err(anyhow!(
@@ -43,16 +43,17 @@ impl Oracle for WebOracle {
             }
         };
 
-        let keyword_locations = keyword_location(url, config);
+        let keyword_locations = keyword_location(url, oracle_config);
         if keyword_locations.is_empty() {
             return Err(anyhow!(
                 "Keyword not found in URL, headers, or POST data. See `--keyword` for further info"
             ));
         }
 
-        let mut client_builder =
-            ClientBuilder::new().danger_accept_invalid_certs(*config.insecure());
-        if !config.redirect() {
+        let mut client_builder = ClientBuilder::new()
+            .danger_accept_invalid_certs(*oracle_config.insecure())
+            .user_agent(oracle_config.user_agent());
+        if !oracle_config.redirect() {
             client_builder = client_builder.redirect(Policy::none());
         }
 
@@ -60,7 +61,7 @@ impl Oracle for WebOracle {
 
         let oracle = Self {
             url: url.to_owned(),
-            config: config.clone(),
+            config: oracle_config.clone(),
             web_client,
             keyword_locations,
         };
