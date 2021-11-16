@@ -3,7 +3,9 @@ pub mod ui_update;
 mod widgets;
 
 use std::{
+    cmp::{max, min},
     io::{self},
+    process,
     sync::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
         Mutex,
@@ -13,14 +15,19 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use tui::{backend::CrosstermBackend, layout::Rect, Terminal};
+use crossterm::{
+    event::{self, Event, KeyCode, KeyModifiers},
+    terminal::{disable_raw_mode, enable_raw_mode},
+};
+use tui::{backend::CrosstermBackend, widgets::TableState, Terminal};
+use tui_logger::{TuiWidgetEvent, TuiWidgetState};
 
 use crate::block::{
     block_size::{BlockSize, BlockSizeTrait},
     Block,
 };
 
-use self::{layout::TuiLayout, ui_update::UiUpdate, widgets::Widgets};
+use self::{layout::TuiLayout, ui_update::UiEvent, widgets::Widgets};
 
 const FRAME_SLEEP_MS: u64 = 20;
 
@@ -34,10 +41,12 @@ pub struct Tui {
 }
 
 struct UiState {
-    pub running: AtomicBool,
-    pub slow_redraw: AtomicBool,
-    pub redraw: AtomicBool,
-    pub previous_terminal_size: Mutex<Rect>,
+    running: AtomicBool,
+    slow_redraw: AtomicBool,
+    redraw: AtomicBool,
+
+    log_view_state: Mutex<TuiWidgetState>,
+    blocks_view_state: Mutex<TableState>,
 }
 
 struct AppState {
@@ -59,12 +68,12 @@ impl Tui {
         original_cypher_text_blocks: Vec<Block>,
         no_iv: bool,
     ) -> Result<Self> {
+        enable_raw_mode()?;
+
         let stdout = io::stdout();
         let backend = CrosstermBackend::new(stdout);
         let mut terminal = Terminal::new(backend)?;
         terminal.clear().context("Clearing terminal failed")?;
-
-        let terminal_size = terminal.size().context("Getting terminal size failed")?;
 
         let amount_original_blocks = original_cypher_text_blocks.len();
         let default_blocks = vec![Block::new(block_size); amount_original_blocks - 1];
@@ -78,7 +87,9 @@ impl Tui {
                 running: AtomicBool::new(true),
                 slow_redraw: AtomicBool::new(false),
                 redraw: AtomicBool::new(true),
-                previous_terminal_size: Mutex::new(terminal_size),
+
+                log_view_state: Mutex::new(TuiWidgetState::new()),
+                blocks_view_state: Mutex::new(TableState::default()),
             },
 
             app_state: AppState {
@@ -109,46 +120,39 @@ impl Tui {
         Ok(tui)
     }
 
+    pub fn exit(&self, exit_code: i32) {
+        disable_raw_mode().expect("Disabling raw terminal mode failed");
+        self.terminal
+            .lock()
+            .unwrap()
+            .show_cursor()
+            .expect("Showing cursor failed");
+        process::exit(exit_code);
+    }
+
     pub fn main_loop(&self) -> Result<()> {
         while self.ui_state.running.load(Ordering::Relaxed) {
-            let terminal_size = self
-                .terminal
-                .lock()
-                .unwrap()
-                .size()
-                .context("Getting terminal size failed")?;
+            self.handle_user_event()?;
 
-            if self.need_redraw(&terminal_size) {
+            if self.need_redraw() {
                 self.draw().context("Drawing UI failed")?;
                 self.ui_state.redraw.store(false, Ordering::Relaxed);
-                *self.ui_state.previous_terminal_size.lock().unwrap() = terminal_size;
             }
 
-            sleep(Duration::from_millis(FRAME_SLEEP_MS));
-        }
-
-        // done, but keep window open. Redraw to prevent user input overwriting TUI
-        while self.ui_state.slow_redraw.load(Ordering::Relaxed) {
-            let terminal_size = self
-                .terminal
-                .lock()
-                .unwrap()
-                .size()
-                .context("Getting terminal size failed")?;
-
-            self.draw().context("Drawing UI failed")?;
-            *self.ui_state.previous_terminal_size.lock().unwrap() = terminal_size;
-
-            sleep(Duration::from_millis(3 * FRAME_SLEEP_MS));
+            if self.ui_state.slow_redraw.load(Ordering::Relaxed) {
+                sleep(Duration::from_millis(FRAME_SLEEP_MS * 3));
+            } else {
+                sleep(Duration::from_millis(FRAME_SLEEP_MS));
+            }
         }
 
         // 1 last draw to ensure errors are displayed
         self.draw().context("Drawing UI failed").map(|_| ())
     }
 
-    pub fn update(&self, update: UiUpdate) {
-        match update {
-            UiUpdate::ForgedBlock((forged_block, block_to_decrypt_idx)) => {
+    pub fn handle_application_event(&self, event: UiEvent) {
+        match event {
+            UiEvent::ForgedBlockUpdate((forged_block, block_to_decrypt_idx)) => {
                 let intermediate =
                     &forged_block ^ &Block::new_incremental_padding(&forged_block.block_size());
 
@@ -161,7 +165,7 @@ impl Tui {
                     intermediate;
                 self.app_state.plaintext_blocks.lock().unwrap()[block_to_decrypt_idx] = plaintext;
             }
-            UiUpdate::ForgedBlockWip((forged_block, block_to_decrypt_idx)) => {
+            UiEvent::ForgedBlockWipUpdate((forged_block, block_to_decrypt_idx)) => {
                 let intermediate =
                     &forged_block ^ &Block::new_incremental_padding(&forged_block.block_size());
 
@@ -180,48 +184,120 @@ impl Tui {
                 }
             }
             // due to concurrency, we can't just send which blocks was finished. So this acts as a "ping" to indicate that a byte was locked
-            UiUpdate::ProgressUpdate => {
+            UiEvent::ProgressUpdate => {
                 self.app_state
                     .bytes_finished
                     .fetch_add(1, Ordering::Relaxed);
             }
-            UiUpdate::SlowRedraw => {
+            UiEvent::SlowRedraw => {
                 self.ui_state.slow_redraw.store(true, Ordering::Relaxed);
-                self.ui_state.running.store(false, Ordering::Relaxed);
             }
         }
 
         self.ui_state.redraw.store(true, Ordering::Relaxed);
     }
 
-    fn need_redraw(&self, terminal_size: &Rect) -> bool {
+    fn need_redraw(&self) -> bool {
         self.ui_state.redraw.load(Ordering::Relaxed)
-            || *terminal_size != *self.ui_state.previous_terminal_size.lock().unwrap()
+        // during slow redraw, there's no need to optimise the UI. The timeout per frame is already long enough. Also, slow redraw is done after the decryption is finished, so the UI doesn't have to be as optimised
+            || self.ui_state.slow_redraw.load(Ordering::Relaxed)
     }
 
     fn draw(&self) -> Result<&Self> {
         self.terminal.lock().unwrap().draw(|frame| {
             let layout = TuiLayout::calculate(frame.size(), self.min_width_for_horizontal_layout);
-            let widgets = Widgets::build(&self.app_state);
+            let widgets = Widgets::build(&self.app_state, &self.ui_state);
 
             frame.render_widget(widgets.outer_border, frame.size());
 
-            frame.render_widget(
+            let mut blocks_view_state = self.ui_state.blocks_view_state.lock().unwrap().clone();
+            frame.render_stateful_widget(
                 widgets.original_cypher_text_view,
                 *layout.original_cypher_text_area(),
+                &mut blocks_view_state,
             );
-            frame.render_widget(widgets.forged_block_view, *layout.forged_block_area());
-            frame.render_widget(
+            frame.render_stateful_widget(
+                widgets.forged_block_view,
+                *layout.forged_block_area(),
+                &mut blocks_view_state,
+            );
+            frame.render_stateful_widget(
                 widgets.intermediate_block_view,
                 *layout.intermediate_block_area(),
+                &mut blocks_view_state,
             );
-            frame.render_widget(widgets.plaintext_view, *layout.plaintext_area());
+            frame.render_stateful_widget(
+                widgets.plaintext_view,
+                *layout.plaintext_area(),
+                &mut blocks_view_state,
+            );
 
             frame.render_widget(widgets.status_panel_border, *layout.status_panel_area());
             frame.render_widget(widgets.progress_bar, *layout.progress_bar_area());
+            // no `render_stateful_widget` as `TuiLoggerWidget` doesn't implement `StatefulWidget`, but handles it custom
             frame.render_widget(widgets.logs_view, *layout.logs_area());
         })?;
 
         Ok(self)
+    }
+
+    fn handle_user_event(&self) -> Result<()> {
+        if event::poll(Duration::from_millis(0))? {
+            let event = event::read()?;
+            match event {
+                Event::Key(pressed_key) => {
+                    // re-implement CTRL+C which was disabled by raw-mode
+                    if pressed_key.modifiers == KeyModifiers::CONTROL
+                        && pressed_key.code == KeyCode::Char('c')
+                    {
+                        self.exit(0);
+                    }
+
+                    match pressed_key.code {
+                        KeyCode::PageUp => {
+                            self.ui_state
+                                .log_view_state
+                                .lock()
+                                .unwrap()
+                                .transition(&TuiWidgetEvent::PrevPageKey);
+                        }
+                        KeyCode::PageDown => {
+                            self.ui_state
+                                .log_view_state
+                                .lock()
+                                .unwrap()
+                                .transition(&TuiWidgetEvent::NextPageKey);
+                        }
+                        KeyCode::Up => {
+                            let mut state = self.ui_state.blocks_view_state.lock().unwrap();
+                            let new_selection = state
+                                .selected()
+                                // prevent underflow which would wrap around and become more than 0
+                                .map(|idx| if idx == 0 { 0 } else { max(idx - 1, 0) })
+                                .unwrap_or_default();
+                            state.select(Some(new_selection));
+                        }
+                        KeyCode::Down => {
+                            let mut state = self.ui_state.blocks_view_state.lock().unwrap();
+                            let new_selection = state
+                                .selected()
+                                .map(|idx| {
+                                    min(
+                                        idx + 1,
+                                        self.app_state.original_cypher_text_blocks.len() - 1,
+                                    )
+                                })
+                                .unwrap_or(1);
+                            state.select(Some(new_selection));
+                        }
+                        _ => {}
+                    };
+                }
+                Event::Resize(_, _) => self.ui_state.redraw.store(true, Ordering::Relaxed),
+                Event::Mouse(_) => {}
+            };
+        }
+
+        Ok(())
     }
 }

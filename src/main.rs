@@ -6,8 +6,6 @@ mod oracle;
 mod questioning;
 mod tui;
 
-use std::process;
-
 use anyhow::{Context, Result};
 use crossbeam::thread;
 use cypher_text::encode::Encode;
@@ -25,13 +23,13 @@ use crate::{
         Oracle,
     },
     questioning::Questioning,
-    tui::{ui_update::UiUpdate, Tui},
+    tui::{ui_update::UiEvent, Tui},
 };
 
 fn decrypt_main(
     mut config: Config,
     cypher_text: CypherText,
-    update_ui_callback: impl FnMut(UiUpdate) + Sync + Send + Clone,
+    update_ui_callback: impl FnMut(UiEvent) + Sync + Send + Clone,
 ) -> Result<()> {
     match config.oracle_location() {
         OracleLocation::Web(_) => {
@@ -70,27 +68,27 @@ fn main() -> Result<()> {
     .context("TUI creation failed")?;
     init_logging(*config.log_level())?;
 
-    let update_ui_callback = |update| tui.update(update);
+    let update_ui_callback = |event| tui.handle_application_event(event);
     thread::scope(|scope| {
         if let Err(e) = scope.builder().name("TUI".to_string()).spawn(|_| {
             if let Err(e) = tui.main_loop() {
                 error!(target: LOG_TARGET, "{:?}", e);
                 // decryption thread can stop the draw main loop, but the other way around there is no such thing
-                process::exit(1)
+                tui.exit(1)
             }
         }) {
             error!(target: LOG_TARGET, "{:?}", e);
-            process::exit(1)
+            tui.exit(1)
         }
 
         if let Err(e) = scope.builder().name("Decryption".to_string()).spawn(|_| {
             if let Err(e) = decrypt_main(config, cypher_text, update_ui_callback) {
                 error!(target: LOG_TARGET, "{:?}", e);
-                (update_ui_callback)(UiUpdate::SlowRedraw);
+                (update_ui_callback)(UiEvent::SlowRedraw);
             }
         }) {
             error!(target: LOG_TARGET, "{:?}", e);
-            (update_ui_callback)(UiUpdate::SlowRedraw);
+            (update_ui_callback)(UiEvent::SlowRedraw);
         }
     })
     .unwrap();

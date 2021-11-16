@@ -19,7 +19,7 @@ use crate::{
     logging::LOG_TARGET,
     oracle::{web::calibrate_web::CalibrationWebOracle, Oracle},
     questioning::calibration_response::CalibrationResponse,
-    tui::ui_update::UiUpdate,
+    tui::ui_update::UiEvent,
 };
 
 const RETRY_DELAY_MS: u64 = 100;
@@ -28,7 +28,7 @@ const RETRY_MAX_ATTEMPTS: u64 = 3;
 /// Manages the oracle attack on a high level.
 pub(super) struct Questioning<'a, U>
 where
-    U: FnMut(UiUpdate) + Sync + Send + Clone,
+    U: FnMut(UiEvent) + Sync + Send + Clone,
 {
     forged_cypher_texts: Vec<ForgedCypherText<'a>>,
     update_ui_callback: U,
@@ -36,7 +36,7 @@ where
 
 impl<'a, U> Questioning<'a, U>
 where
-    U: FnMut(UiUpdate) + Sync + Send + Clone,
+    U: FnMut(UiEvent) + Sync + Send + Clone,
 {
     /// Divides the cypher text into a modifiable part for each block.
     pub(super) fn prepare(
@@ -103,7 +103,7 @@ where
                             .map_err(|e| anyhow!(e.to_string()))?;
 
                             // update UI with attempt
-                            (self.update_ui_callback.clone())(UiUpdate::ForgedBlockWip((
+                            (self.update_ui_callback.clone())(UiEvent::ForgedBlockWipUpdate((
                                 forged_cypher_text.forged_block_wip().clone(),
                                 block_to_decrypt_idx,
                             )));
@@ -142,7 +142,7 @@ where
 
                             bytes_answered += 1;
                             attempts_to_solve_byte = 1;
-                            (self.update_ui_callback.clone())(UiUpdate::ProgressUpdate);
+                            (self.update_ui_callback.clone())(UiEvent::ProgressUpdate);
                         }
                         None => {
                             if attempts_to_solve_byte > RETRY_MAX_ATTEMPTS {
@@ -171,7 +171,7 @@ where
                     "Block {}: solved!",
                     block_to_decrypt_idx + 1,
                 );
-                (self.update_ui_callback.clone())(UiUpdate::ForgedBlock((
+                (self.update_ui_callback.clone())(UiEvent::ForgedBlockUpdate((
                     forged_cypher_text.forged_block_solution().clone(),
                     block_to_decrypt_idx,
                 )));
@@ -198,7 +198,7 @@ where
             );
         }
 
-        (self.update_ui_callback)(UiUpdate::SlowRedraw);
+        (self.update_ui_callback)(UiEvent::SlowRedraw);
         Ok(())
     }
 

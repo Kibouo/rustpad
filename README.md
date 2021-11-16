@@ -1,5 +1,4 @@
 # TODO:
-- add keybinds & show them
 - aspnet encoding?
 - smarter URL parsing
 - add user agent

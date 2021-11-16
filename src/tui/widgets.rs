@@ -3,13 +3,13 @@ use std::{cmp::min, sync::atomic::Ordering};
 use getset::Getters;
 use tui::{
     layout::Constraint,
-    style::{Color, Style},
+    style::{Color, Modifier, Style},
     text::Span,
     widgets::{Block, Borders, Gauge, Row, Table},
 };
 use tui_logger::TuiLoggerWidget;
 
-use super::AppState;
+use super::{AppState, UiState};
 
 #[derive(Getters)]
 pub(super) struct Widgets {
@@ -28,7 +28,7 @@ pub(super) struct Widgets {
 }
 
 impl Widgets {
-    pub(super) fn build(app_state: &AppState) -> Widgets {
+    pub(super) fn build(app_state: &AppState, ui_state: &UiState) -> Widgets {
         let title_style = Style::default().fg(Color::Cyan);
 
         Widgets {
@@ -80,103 +80,92 @@ impl Widgets {
                     * 100.0) as u8,
                 100,
             )),
-            logs_view: build_log_view(title_style),
+            logs_view: {
+                let mut log_view = build_log_view(title_style);
+                log_view.state(&ui_state.log_view_state.lock().unwrap());
+                log_view
+            },
         }
     }
 }
 
 fn build_outer_border(title_style: Style) -> Block<'static> {
-    let title = {
-        let mut title = Span::from("rustpad");
-        title.style = title_style;
-        title
-    };
-
-    Block::default().title(title).borders(Borders::NONE)
+    Block::default()
+        .title(Span::styled("rustpad", title_style))
+        .borders(Borders::NONE)
 }
 
 fn build_original_cypher_text_view(title_style: Style, rows: Vec<Row>) -> Table {
-    let title = {
-        let mut title = Span::from("Cypher text");
-        title.style = title_style;
-        title
-    };
+    let title = Span::styled("Cypher text ", title_style);
+    let key_indicator = Span::styled("[🠕/🠗]", Style::default().add_modifier(Modifier::DIM));
 
     Table::new(rows)
-        .block(Block::default().title(title).borders(Borders::ALL))
+        .block(
+            Block::default()
+                .title(vec![title, key_indicator])
+                .borders(Borders::ALL),
+        )
         .widths(&[Constraint::Ratio(1, 1)])
 }
 
 fn build_forged_block_view(title_style: Style, rows: Vec<Row>) -> Table {
-    let title = {
-        let mut title = Span::from("Forged block");
-        title.style = title_style;
-        title
-    };
-
     Table::new(rows)
-        .block(Block::default().title(title).borders(Borders::ALL))
+        .block(
+            Block::default()
+                .title(Span::styled("Forged block", title_style))
+                .borders(Borders::ALL),
+        )
         .widths(&[Constraint::Ratio(1, 1)])
 }
 
 fn build_intermediate_view(title_style: Style, rows: Vec<Row>) -> Table {
-    let title = {
-        let mut title = Span::from("Intermediate block");
-        title.style = title_style;
-        title
-    };
-
     Table::new(rows)
-        .block(Block::default().title(title).borders(Borders::ALL))
+        .block(
+            Block::default()
+                .title(Span::styled("Intermediate block", title_style))
+                .borders(Borders::ALL),
+        )
         .widths(&[Constraint::Ratio(1, 1)])
 }
 
 fn build_plaintext_view(title_style: Style, rows: Vec<Row>) -> Table {
-    let title = {
-        let mut title = Span::from("Plain text");
-        title.style = title_style;
-        title
-    };
-
     Table::new(rows)
-        .block(Block::default().title(title).borders(Borders::ALL))
+        .block(
+            Block::default()
+                .title(Span::styled("Plain text", title_style))
+                .borders(Borders::ALL),
+        )
         .column_spacing(1)
         .widths(&[Constraint::Ratio(2, 3), Constraint::Ratio(1, 3)])
 }
 
 fn build_status_panel_border(title_style: Style) -> Block<'static> {
-    let title = {
-        let mut title = Span::from("Status");
-        title.style = title_style;
-        title
-    };
-
-    Block::default().title(title).borders(Borders::ALL)
+    Block::default()
+        .title(Span::styled("Status", title_style))
+        .borders(Borders::ALL)
 }
 
 fn build_progress_bar(progress: u8) -> Gauge<'static> {
-    let label = {
-        let mut label = Span::from(format!("{}%", progress));
-        label.style = Style::default().fg(Color::DarkGray);
-        label
-    };
-
     Gauge::default()
         .gauge_style(Style::default().fg(Color::LightCyan))
         .percent(progress as u16)
-        .label(label)
+        .label(Span::styled(
+            format!("{}%", progress),
+            Style::default().fg(Color::DarkGray),
+        ))
         .use_unicode(true)
 }
 
 fn build_log_view(title_style: Style) -> TuiLoggerWidget<'static> {
-    let title = {
-        let mut title = Span::from("Log");
-        title.style = title_style;
-        title
-    };
+    let title = Span::styled("Log ", title_style);
+    let key_indicator = Span::styled("[PgUp/PgDwn]", Style::default().add_modifier(Modifier::DIM));
 
     TuiLoggerWidget::default()
-        .block(Block::default().title(title).borders(Borders::NONE))
+        .block(
+            Block::default()
+                .title(vec![title, key_indicator])
+                .borders(Borders::NONE),
+        )
         .style_error(Style::default().fg(Color::Red))
         .style_warn(Style::default().fg(Color::Yellow))
         .style_info(Style::default().fg(Color::LightBlue))
