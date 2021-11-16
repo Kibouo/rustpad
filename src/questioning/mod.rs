@@ -189,7 +189,7 @@ where
         let plain_text_solution = self
             .forged_cypher_texts
             .iter()
-            .map(|forged_cypher_text| forged_cypher_text.plaintext_solution())
+            .map(|forged_cypher_text| forged_cypher_text.plain_text_solution())
             .collect::<Result<String>>()?;
         if !plain_text_solution.is_empty() {
             info!(

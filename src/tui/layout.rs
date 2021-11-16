@@ -11,7 +11,7 @@ pub(super) struct TuiLayout {
     #[get = "pub"]
     intermediate_block_area: Rect,
     #[get = "pub"]
-    plaintext_area: Rect,
+    plain_text_area: Rect,
 
     // status panel
     #[get = "pub"]
@@ -60,7 +60,7 @@ impl TuiLayout {
             original_cypher_text_area: decryption_panel[0],
             forged_block_area: decryption_panel[1],
             intermediate_block_area: decryption_panel[2],
-            plaintext_area: decryption_panel[3],
+            plain_text_area: decryption_panel[3],
             status_panel_area: main_vertical_layout[1],
             progress_bar_area: status_panel[0],
             logs_area: status_panel[1],

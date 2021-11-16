@@ -78,7 +78,7 @@ impl<'a> ForgedCypherText<'a> {
         }
     }
 
-    pub fn plaintext_solution(&self) -> Result<String> {
+    pub fn plain_text_solution(&self) -> Result<String> {
         if !self.is_answered() {
             return Err(anyhow!(
                 "Plain text computation failed. Not all bytes of the forged block were locked"
@@ -87,9 +87,9 @@ impl<'a> ForgedCypherText<'a> {
 
         let intermediate =
             &self.forged_block_solution ^ &Block::new_incremental_padding(&self.block_size());
-        let plaintext = &intermediate ^ self.original_forged_block();
+        let plain_text = &intermediate ^ self.original_forged_block();
 
-        Ok(plaintext.to_string())
+        Ok(plain_text.to_string())
     }
 
     fn is_answered(&self) -> bool {

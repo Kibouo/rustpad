@@ -59,7 +59,7 @@ struct AppState {
 
     forged_blocks: Mutex<Vec<Block>>,
     intermediate_blocks: Mutex<Vec<Block>>,
-    plaintext_blocks: Mutex<Vec<Block>>,
+    plain_text_blocks: Mutex<Vec<Block>>,
 }
 
 impl Tui {
@@ -109,7 +109,7 @@ impl Tui {
                     blocks.extend(default_blocks.clone());
                     blocks
                 }),
-                plaintext_blocks: Mutex::new({
+                plain_text_blocks: Mutex::new({
                     let mut blocks = vec![Block::new(block_size)];
                     blocks.extend(default_blocks);
                     blocks
@@ -156,20 +156,20 @@ impl Tui {
                 let intermediate =
                     &forged_block ^ &Block::new_incremental_padding(&forged_block.block_size());
 
-                let plaintext = &intermediate
+                let plain_text = &intermediate
                     ^ &self.app_state.original_cypher_text_blocks[block_to_decrypt_idx - 1];
 
                 self.app_state.forged_blocks.lock().unwrap()[block_to_decrypt_idx - 1] =
                     forged_block;
                 self.app_state.intermediate_blocks.lock().unwrap()[block_to_decrypt_idx] =
                     intermediate;
-                self.app_state.plaintext_blocks.lock().unwrap()[block_to_decrypt_idx] = plaintext;
+                self.app_state.plain_text_blocks.lock().unwrap()[block_to_decrypt_idx] = plain_text;
             }
             UiEvent::ForgedBlockWipUpdate((forged_block, block_to_decrypt_idx)) => {
                 let intermediate =
                     &forged_block ^ &Block::new_incremental_padding(&forged_block.block_size());
 
-                let plaintext = &intermediate
+                let plain_text = &intermediate
                     ^ &self.app_state.original_cypher_text_blocks[block_to_decrypt_idx - 1];
 
                 // `try_lock` as updating isn't critical. This is mainly for visuals
@@ -179,8 +179,8 @@ impl Tui {
                 if let Ok(mut blocks) = self.app_state.intermediate_blocks.try_lock() {
                     blocks[block_to_decrypt_idx] = intermediate;
                 }
-                if let Ok(mut blocks) = self.app_state.plaintext_blocks.try_lock() {
-                    blocks[block_to_decrypt_idx] = plaintext;
+                if let Ok(mut blocks) = self.app_state.plain_text_blocks.try_lock() {
+                    blocks[block_to_decrypt_idx] = plain_text;
                 }
             }
             // due to concurrency, we can't just send which blocks was finished. So this acts as a "ping" to indicate that a byte was locked
@@ -227,8 +227,8 @@ impl Tui {
                 &mut blocks_view_state,
             );
             frame.render_stateful_widget(
-                widgets.plaintext_view,
-                *layout.plaintext_area(),
+                widgets.plain_text_view,
+                *layout.plain_text_area(),
                 &mut blocks_view_state,
             );
 

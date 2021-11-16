@@ -19,7 +19,7 @@ pub(super) struct Widgets {
     pub original_cypher_text_view: Table<'static>,
     pub forged_block_view: Table<'static>,
     pub intermediate_block_view: Table<'static>,
-    pub plaintext_view: Table<'static>,
+    pub plain_text_view: Table<'static>,
 
     // status panel
     pub status_panel_border: Block<'static>,
@@ -62,10 +62,10 @@ impl Widgets {
                     .map(|b| Row::new([b.to_hex()]))
                     .collect(),
             ),
-            plaintext_view: build_plaintext_view(
+            plain_text_view: build_plain_text_view(
                 title_style,
                 app_state
-                    .plaintext_blocks
+                    .plain_text_blocks
                     .lock()
                     .unwrap()
                     .iter()
@@ -128,7 +128,7 @@ fn build_intermediate_view(title_style: Style, rows: Vec<Row>) -> Table {
         .widths(&[Constraint::Ratio(1, 1)])
 }
 
-fn build_plaintext_view(title_style: Style, rows: Vec<Row>) -> Table {
+fn build_plain_text_view(title_style: Style, rows: Vec<Row>) -> Table {
     Table::new(rows)
         .block(
             Block::default()
