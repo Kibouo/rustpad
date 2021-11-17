@@ -17,17 +17,17 @@ use crate::{
     other::{RETRY_DELAY_MS, RETRY_MAX_ATTEMPTS},
 };
 
-pub struct Mediator<'a> {
+pub struct Calibrator<'a> {
     forged_cypher_text: ForgedCypherText<'a>,
 }
 
-impl<'a> Mediator<'a> {
+impl<'a> Calibrator<'a> {
     pub(super) fn new(forged_cypher_text: ForgedCypherText<'a>) -> Self {
         Self { forged_cypher_text }
     }
 
     /// Find how the web oracle responds in case of a padding error
-    pub(super) fn calibrate_web_oracle(
+    pub(super) fn determine_padding_error_response(
         &self,
         oracle: CalibrationWebOracle,
     ) -> Result<CalibrationResponse> {
@@ -36,7 +36,7 @@ impl<'a> Mediator<'a> {
             .map(|byte_value| {
                 let mut forged_cypher_text = self.forged_cypher_text.clone();
 
-                forged_cypher_text.set_current_byte(byte_value)?;
+                forged_cypher_text.set_current_byte(byte_value);
                 debug!(
                     target: LOG_TARGET,
                     "Calibration block: trying layout {:?}",

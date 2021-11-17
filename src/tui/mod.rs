@@ -1,5 +1,5 @@
 mod layout;
-pub mod ui_update;
+pub mod ui_event;
 mod widgets;
 
 use std::{
@@ -27,7 +27,11 @@ use crate::block::{
     Block,
 };
 
-use self::{layout::TuiLayout, ui_update::UiEvent, widgets::Widgets};
+use self::{
+    layout::TuiLayout,
+    ui_event::{UiControlEvent, UiDecryptionEvent, UiEncryptionEvent, UiEvent},
+    widgets::Widgets,
+};
 
 const FRAME_SLEEP_MS: u64 = 20;
 
@@ -50,31 +54,24 @@ struct UiState {
 }
 
 struct AppState {
-    original_cypher_text_blocks: Vec<Block>,
-
     // for progress calculation
-    bytes_to_finish: usize,
+    bytes_to_finish: AtomicUsize,
     bytes_finished: AtomicUsize,
 
+    cypher_text_blocks: Mutex<Vec<Block>>,
     forged_blocks: Mutex<Vec<Block>>,
     intermediate_blocks: Mutex<Vec<Block>>,
     plain_text_blocks: Mutex<Vec<Block>>,
 }
 
 impl Tui {
-    pub(super) fn new(
-        block_size: &BlockSize,
-        original_cypher_text_blocks: Vec<Block>,
-    ) -> Result<Self> {
+    pub(super) fn new(block_size: &BlockSize) -> Result<Self> {
         enable_raw_mode()?;
 
         let stdout = io::stdout();
         let backend = CrosstermBackend::new(stdout);
         let mut terminal = Terminal::new(backend)?;
         terminal.clear().context("Clearing terminal failed")?;
-
-        let amount_original_blocks = original_cypher_text_blocks.len();
-        let default_blocks = vec![Block::new(block_size); amount_original_blocks - 1];
 
         let tui = Self {
             terminal: Mutex::new(terminal),
@@ -91,26 +88,13 @@ impl Tui {
             },
 
             app_state: AppState {
-                original_cypher_text_blocks,
-
-                bytes_to_finish: (amount_original_blocks - 1) * (**block_size as usize),
+                bytes_to_finish: AtomicUsize::new(1),
                 bytes_finished: AtomicUsize::new(0),
 
-                forged_blocks: Mutex::new({
-                    let mut blocks = default_blocks.clone();
-                    blocks.push(Block::new(block_size));
-                    blocks
-                }),
-                intermediate_blocks: Mutex::new({
-                    let mut blocks = vec![Block::new(block_size)];
-                    blocks.extend(default_blocks.clone());
-                    blocks
-                }),
-                plain_text_blocks: Mutex::new({
-                    let mut blocks = vec![Block::new(block_size)];
-                    blocks.extend(default_blocks);
-                    blocks
-                }),
+                cypher_text_blocks: Mutex::new(vec![]),
+                forged_blocks: Mutex::new(vec![]),
+                intermediate_blocks: Mutex::new(vec![]),
+                plain_text_blocks: Mutex::new(vec![]),
             },
         };
 
@@ -118,12 +102,12 @@ impl Tui {
     }
 
     pub(super) fn exit(&self, exit_code: i32) {
-        disable_raw_mode().expect("Disabling raw terminal mode failed");
+        disable_raw_mode().expect("Raw mode disabling failed");
         self.terminal
             .lock()
             .unwrap()
             .show_cursor()
-            .expect("Showing cursor failed");
+            .expect("Un-hiding cursor failed");
         process::exit(exit_code);
     }
 
@@ -149,49 +133,134 @@ impl Tui {
 
     pub(super) fn handle_application_event(&self, event: UiEvent) {
         match event {
-            UiEvent::ForgedBlockUpdate((forged_block, block_to_decrypt_idx)) => {
-                let intermediate =
-                    &forged_block ^ &Block::new_incremental_padding(&forged_block.block_size());
-
-                let plain_text = &intermediate
-                    ^ &self.app_state.original_cypher_text_blocks[block_to_decrypt_idx - 1];
-
-                self.app_state.forged_blocks.lock().unwrap()[block_to_decrypt_idx - 1] =
-                    forged_block;
-                self.app_state.intermediate_blocks.lock().unwrap()[block_to_decrypt_idx] =
-                    intermediate;
-                self.app_state.plain_text_blocks.lock().unwrap()[block_to_decrypt_idx] = plain_text;
-            }
-            UiEvent::ForgedBlockWipUpdate((forged_block, block_to_decrypt_idx)) => {
-                let intermediate =
-                    &forged_block ^ &Block::new_incremental_padding(&forged_block.block_size());
-
-                let plain_text = &intermediate
-                    ^ &self.app_state.original_cypher_text_blocks[block_to_decrypt_idx - 1];
-
-                // `try_lock` as updating isn't critical. This is mainly for visuals
-                if let Ok(mut blocks) = self.app_state.forged_blocks.try_lock() {
-                    blocks[block_to_decrypt_idx - 1] = forged_block;
-                }
-                if let Ok(mut blocks) = self.app_state.intermediate_blocks.try_lock() {
-                    blocks[block_to_decrypt_idx] = intermediate;
-                }
-                if let Ok(mut blocks) = self.app_state.plain_text_blocks.try_lock() {
-                    blocks[block_to_decrypt_idx] = plain_text;
-                }
-            }
-            // due to concurrency, we can't just send which blocks was finished. So this acts as a "ping" to indicate that a byte was locked
-            UiEvent::ProgressUpdate => {
-                self.app_state
-                    .bytes_finished
-                    .fetch_add(1, Ordering::Relaxed);
-            }
-            UiEvent::SlowRedraw => {
-                self.ui_state.slow_redraw.store(true, Ordering::Relaxed);
-            }
+            UiEvent::Decryption(event) => self.handle_decryption_event(event),
+            UiEvent::Encryption(event) => self.handle_encryption_event(event),
+            UiEvent::Control(event) => self.handle_control_event(event),
         }
 
         self.ui_state.redraw.store(true, Ordering::Relaxed);
+    }
+
+    fn handle_decryption_event(&self, event: UiDecryptionEvent) {
+        match event {
+            UiDecryptionEvent::InitDecryption(original_cypher_text_blocks) => {
+                let block_size = original_cypher_text_blocks[0].block_size();
+                let amount_cypher_text_blocks = original_cypher_text_blocks.len();
+
+                *self.app_state.cypher_text_blocks.lock().unwrap() = original_cypher_text_blocks;
+
+                let default_blocks = vec![Block::new(&block_size); amount_cypher_text_blocks];
+                *self.app_state.forged_blocks.lock().unwrap() = default_blocks.clone();
+                *self.app_state.intermediate_blocks.lock().unwrap() = default_blocks.clone();
+                *self.app_state.plain_text_blocks.lock().unwrap() = default_blocks;
+            }
+            UiDecryptionEvent::BlockSolved(forged_block, cypher_text_block_idx) => {
+                let intermediate = forged_block.to_intermediate();
+
+                let plain_text = &intermediate
+                    ^ &self.app_state.cypher_text_blocks.lock().unwrap()[cypher_text_block_idx - 1];
+
+                self.app_state.forged_blocks.lock().unwrap()[cypher_text_block_idx - 1] =
+                    forged_block;
+                self.app_state.intermediate_blocks.lock().unwrap()[cypher_text_block_idx] =
+                    intermediate;
+                self.app_state.plain_text_blocks.lock().unwrap()[cypher_text_block_idx] =
+                    plain_text;
+            }
+            UiDecryptionEvent::BlockWip(forged_block, cypher_text_block_idx) => {
+                let intermediate = forged_block.to_intermediate();
+
+                let plain_text = &intermediate
+                    ^ &self.app_state.cypher_text_blocks.lock().unwrap()[cypher_text_block_idx - 1];
+
+                // `try_lock` as updating isn't critical. This is mainly for visuals
+                if let Ok(mut blocks) = self.app_state.forged_blocks.try_lock() {
+                    blocks[cypher_text_block_idx - 1] = forged_block;
+                }
+                if let Ok(mut blocks) = self.app_state.intermediate_blocks.try_lock() {
+                    blocks[cypher_text_block_idx] = intermediate;
+                }
+                if let Ok(mut blocks) = self.app_state.plain_text_blocks.try_lock() {
+                    blocks[cypher_text_block_idx] = plain_text;
+                }
+            }
+        }
+    }
+
+    fn handle_encryption_event(&self, event: UiEncryptionEvent) {
+        match event {
+            UiEncryptionEvent::InitEncryption(plain_text_blocks, init_cypher_text) => {
+                let block_size = plain_text_blocks[0].block_size();
+                let amount_plain_text_blocks = plain_text_blocks.len();
+
+                *self.app_state.plain_text_blocks.lock().unwrap() = {
+                    let mut blocks = vec![Block::new(&block_size)];
+                    blocks.extend(plain_text_blocks);
+                    blocks
+                };
+
+                // +1 for the IV
+                let default_blocks = vec![Block::new(&block_size); amount_plain_text_blocks + 1];
+                *self.app_state.intermediate_blocks.lock().unwrap() = default_blocks.clone();
+                *self.app_state.forged_blocks.lock().unwrap() = default_blocks;
+
+                // the first solve for an encryption gives the before last cypher text, so the initial cypher text needs to be set here
+                *self.app_state.cypher_text_blocks.lock().unwrap() = {
+                    let mut blocks = vec![Block::new(&block_size); amount_plain_text_blocks];
+                    blocks.push(init_cypher_text);
+                    blocks
+                };
+            }
+            UiEncryptionEvent::BlockSolved(forged_block, cypher_text_block_idx) => {
+                let intermediate = forged_block.to_intermediate();
+
+                let cypher_text = &intermediate
+                    ^ &self.app_state.plain_text_blocks.lock().unwrap()[cypher_text_block_idx];
+
+                self.app_state.intermediate_blocks.lock().unwrap()[cypher_text_block_idx] =
+                    intermediate;
+                self.app_state.forged_blocks.lock().unwrap()[cypher_text_block_idx - 1] =
+                    forged_block;
+                self.app_state.cypher_text_blocks.lock().unwrap()[cypher_text_block_idx - 1] =
+                    cypher_text;
+            }
+            UiEncryptionEvent::BlockWip(forged_block, cypher_text_block_idx) => {
+                let intermediate = forged_block.to_intermediate();
+
+                let cypher_text = &intermediate
+                    ^ &self.app_state.plain_text_blocks.lock().unwrap()[cypher_text_block_idx];
+
+                // `try_lock` as updating isn't critical. This is mainly for visuals
+                if let Ok(mut blocks) = self.app_state.intermediate_blocks.try_lock() {
+                    blocks[cypher_text_block_idx] = intermediate;
+                };
+                if let Ok(mut blocks) = self.app_state.forged_blocks.try_lock() {
+                    blocks[cypher_text_block_idx - 1] = forged_block;
+                };
+                if let Ok(mut blocks) = self.app_state.cypher_text_blocks.try_lock() {
+                    blocks[cypher_text_block_idx - 1] = cypher_text;
+                };
+            }
+        }
+    }
+
+    fn handle_control_event(&self, event: UiControlEvent) {
+        match event {
+            UiControlEvent::IndicateWork(bytes_to_finish) => {
+                self.app_state
+                    .bytes_to_finish
+                    .store(bytes_to_finish, Ordering::Relaxed);
+            }
+            // due to concurrency, we can't just send which blocks was finished. So this acts as a "ping" to indicate that a byte was locked
+            UiControlEvent::ProgressUpdate(newly_solved_bytes) => {
+                self.app_state
+                    .bytes_finished
+                    .fetch_add(newly_solved_bytes, Ordering::Relaxed);
+            }
+            UiControlEvent::SlowRedraw => {
+                self.ui_state.slow_redraw.store(true, Ordering::Relaxed);
+            }
+        }
     }
 
     fn need_redraw(&self) -> bool {
@@ -281,7 +350,7 @@ impl Tui {
                                 .map(|idx| {
                                     min(
                                         idx + 1,
-                                        self.app_state.original_cypher_text_blocks.len() - 1,
+                                        self.app_state.cypher_text_blocks.lock().unwrap().len() - 1,
                                     )
                                 })
                                 .unwrap_or(1);

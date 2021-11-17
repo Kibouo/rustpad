@@ -19,16 +19,14 @@ impl Oracle for ScriptOracle {
         let path = match oracle_location {
             OracleLocation::Script(path) => path,
             OracleLocation::Web(_) => {
-                return Err(anyhow!("Tried to visit the script oracle using a URL!"))
+                panic!("Tried to visit the script oracle using a URL!")
             }
         };
 
         let oracle_config = match oracle_config {
             SubConfig::Script(config) => config,
             SubConfig::Web(_) => {
-                return Err(anyhow!(
-                    "Tried to visit the script oracle using web configs!"
-                ))
+                panic!("Tried to visit the script oracle using web configs!")
             }
         };
 
@@ -48,7 +46,7 @@ impl Oracle for ScriptOracle {
                     .as_path()
                     .to_str()
                     .ok_or_else(|| anyhow!("Invalid path: {}", self.path.display()))?,
-                cypher_text.encode()?
+                cypher_text.encode()
             ))
             .status()
             .context(format!("Script execution failed: {}", self.path.display()))?;

@@ -30,16 +30,14 @@ impl CalibrationWebOracle {
         let url = match oracle_location {
             OracleLocation::Web(url) => url,
             OracleLocation::Script(_) => {
-                return Err(anyhow!("Tried to visit the web oracle using a file path!"));
+                panic!("Tried to visit the web oracle using a file path!");
             }
         };
 
         let oracle_config = match oracle_config {
             SubConfig::Web(config) => config,
             SubConfig::Script(_) => {
-                return Err(anyhow!(
-                    "Tried to visit the web oracle using script configs!"
-                ));
+                panic!("Tried to visit the web oracle using script configs!");
             }
         };
 
@@ -73,7 +71,7 @@ impl CalibrationWebOracle {
             &self.url,
             &self.config,
             self.keyword_locations.iter(),
-            &cypher_text.encode()?,
+            &cypher_text.encode(),
         )
         .context("Replacing all occurrences of keyword failed")?;
 

@@ -25,18 +25,35 @@ impl CypherText {
         let (decoded_data, used_encoding) = decode(&url_decoded)?;
         let blocks = split_into_blocks(&decoded_data[..], *block_size)?;
 
+        if blocks.len() == 1 {
+            // TODO: improve error message /w noiv option
+            return Err(anyhow!("Decryption impossible with only 1 block"));
+        }
+
         Ok(Self {
             blocks,
             url_encoded: input_data != url_decoded,
             used_encoding,
         })
     }
+
+    pub fn from_iter<'a>(
+        blocks: impl IntoIterator<Item = &'a Block>,
+        url_encoded: bool,
+        used_encoding: Encoding,
+    ) -> Self {
+        Self {
+            blocks: blocks.into_iter().cloned().collect(),
+            url_encoded,
+            used_encoding,
+        }
+    }
 }
 
 impl<'a> Encode<'a> for CypherText {
     type Blocks = &'a [Block];
 
-    fn encode(&'a self) -> Result<String> {
+    fn encode(&'a self) -> String {
         let raw_bytes: Vec<u8> = self
         .blocks()
         .iter()
@@ -52,10 +69,10 @@ impl<'a> Encode<'a> for CypherText {
             Encoding::Hex => hex::encode(raw_bytes),
         };
 
-        if self.url_encoded() {
-            Ok(urlencoding::encode(&encoded_data).to_string())
+        if *self.url_encoded() {
+            urlencoding::encode(&encoded_data).to_string()
         } else {
-            Ok(encoded_data)
+            encoded_data
         }
     }
 
@@ -63,12 +80,12 @@ impl<'a> Encode<'a> for CypherText {
         &self.blocks[..]
     }
 
-    fn url_encoded(&self) -> bool {
-        self.url_encoded
+    fn url_encoded(&self) -> &bool {
+        &self.url_encoded
     }
 
-    fn used_encoding(&self) -> Encoding {
-        self.used_encoding
+    fn used_encoding(&self) -> &Encoding {
+        &self.used_encoding
     }
 }
 

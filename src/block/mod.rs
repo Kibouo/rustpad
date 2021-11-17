@@ -5,8 +5,6 @@ use std::{
     ops::{BitXor, Deref, DerefMut},
 };
 
-use anyhow::{anyhow, Result};
-
 use self::block_size::{BlockSize, BlockSizeTrait};
 
 #[derive(Debug, Clone)]
@@ -32,31 +30,31 @@ impl Block {
         }
     }
 
-    pub fn set_byte(&mut self, index: usize, value: u8) -> Result<&mut Self> {
+    pub fn set_byte(&mut self, index: usize, value: u8) -> &mut Self {
         match self {
             Block::Eight(data) => {
                 if index < 8 {
                     data[index] += value;
                 } else {
-                    return Err(anyhow!(
-                        "Tried to increment byte {} of 8-byte block",
+                    panic!(
+                        "Tried to increment byte at index {} of 8-byte block",
                         index + 1
-                    ));
+                    );
                 }
             }
             Block::Sixteen(data) => {
                 if index < 16 {
                     data[index] = value;
                 } else {
-                    return Err(anyhow!(
-                        "Tried to increment byte {} of 16-byte block",
+                    panic!(
+                        "Tried to increment byte at index {} of 16-byte block",
                         index + 1
-                    ));
+                    );
                 }
             }
         }
 
-        Ok(self)
+        self
     }
 
     /// Clone this block and adjusts bytes to produce the correct padding
@@ -88,17 +86,9 @@ impl Block {
             })
             .collect::<String>()
     }
-}
 
-impl Display for Block {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.iter()
-                .map(|byte_value| *byte_value as char)
-                .collect::<String>()
-        )
+    pub fn to_intermediate(&self) -> Block {
+        self ^ &Block::new_incremental_padding(&self.block_size())
     }
 }
 
@@ -167,5 +157,17 @@ impl DerefMut for Block {
             Block::Eight(data) => data,
             Block::Sixteen(data) => data,
         }
+    }
+}
+
+impl Display for Block {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.iter()
+                .map(|byte_value| *byte_value as char)
+                .collect::<String>()
+        )
     }
 }

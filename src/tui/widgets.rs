@@ -15,7 +15,7 @@ use super::{AppState, UiState};
 pub(super) struct Widgets {
     pub outer_border: Block<'static>,
 
-    // decryption panel
+    // logic panel
     pub original_cypher_text_view: Table<'static>,
     pub forged_block_view: Table<'static>,
     pub intermediate_block_view: Table<'static>,
@@ -37,9 +37,11 @@ impl Widgets {
             original_cypher_text_view: build_original_cypher_text_view(
                 title_style,
                 app_state
-                    .original_cypher_text_blocks
+                    .cypher_text_blocks
+                    .lock()
+                    .unwrap()
                     .iter()
-                    .map(|b| Row::new([b.to_hex()]))
+                    .map(|block| Row::new([block.to_hex()]))
                     .collect(),
             ),
             forged_block_view: build_forged_block_view(
@@ -49,7 +51,7 @@ impl Widgets {
                     .lock()
                     .unwrap()
                     .iter()
-                    .map(|b| Row::new([b.to_hex()]))
+                    .map(|block| Row::new([block.to_hex()]))
                     .collect(),
             ),
             intermediate_block_view: build_intermediate_view(
@@ -59,7 +61,7 @@ impl Widgets {
                     .lock()
                     .unwrap()
                     .iter()
-                    .map(|b| Row::new([b.to_hex()]))
+                    .map(|block| Row::new([block.to_hex()]))
                     .collect(),
             ),
             plain_text_view: build_plain_text_view(
@@ -69,14 +71,14 @@ impl Widgets {
                     .lock()
                     .unwrap()
                     .iter()
-                    .map(|b| Row::new([b.to_hex(), b.to_ascii()]))
+                    .map(|block| Row::new([block.to_hex(), block.to_ascii()]))
                     .collect(),
             ),
 
             status_panel_border: build_status_panel_border(title_style),
             progress_bar: build_progress_bar(min(
                 ((app_state.bytes_finished.load(Ordering::Relaxed) as f32
-                    / app_state.bytes_to_finish as f32)
+                    / app_state.bytes_to_finish.load(Ordering::Relaxed) as f32)
                     * 100.0) as u8,
                 100,
             )),

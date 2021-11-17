@@ -4,8 +4,8 @@ use getset::{Getters, MutGetters, Setters};
 use log::LevelFilter;
 
 use crate::{
-    block::block_size::BlockSize, mediator::calibration_response::CalibrationResponse,
-    oracle::oracle_location::OracleLocation,
+    block::block_size::BlockSize, cypher_text::CypherText, oracle::oracle_location::OracleLocation,
+    plain_text::PlainText,
 };
 
 const VERSION_TEMPLATE: &str = "<version>";
@@ -18,7 +18,9 @@ pub struct Config {
     #[getset(get = "pub")]
     oracle_location: OracleLocation,
     #[getset(get = "pub")]
-    cypher_text: String,
+    cypher_text: CypherText,
+    #[getset(get = "pub")]
+    plain_text: Option<PlainText>,
     #[getset(get = "pub")]
     block_size: BlockSize,
     #[getset(get = "pub")]
@@ -55,10 +57,6 @@ pub struct WebConfig {
     insecure: bool,
     #[getset(get = "pub")]
     consider_body: bool,
-
-    // config to be filled out later
-    #[getset(get = "pub", set = "pub")]
-    padding_error_response: Option<CalibrationResponse>,
 }
 
 #[derive(Debug, Clone)]
@@ -72,9 +70,6 @@ impl Config {
         let oracle_location = args
             .value_of("oracle")
             .expect("No required argument `oracle` found");
-        let cypher_text = args
-            .value_of("cypher_text")
-            .expect("No required argument `cypher_text` found");
         let block_size: BlockSize = args
             .value_of("block_size")
             .expect("No required argument `block_size` found")
@@ -84,16 +79,21 @@ impl Config {
             1 => LevelFilter::Debug,
             _ => LevelFilter::Trace,
         };
+        let cypher_text = args
+            .value_of("decrypt")
+            .expect("No required argument `decrypt` found");
+        let plain_text = args.value_of("encrypt");
+
         let sub_command = args
             .subcommand_name()
             .expect("No required sub-command found");
-
         match sub_command {
             "web" => {
                 let sub_command_args = args.subcommand_matches(sub_command).unwrap();
                 parse_as_web(
                     oracle_location,
                     cypher_text,
+                    plain_text,
                     block_size,
                     log_level,
                     sub_command,
@@ -105,6 +105,7 @@ impl Config {
                 parse_as_script(
                     oracle_location,
                     cypher_text,
+                    plain_text,
                     block_size,
                     log_level,
                     sub_command,
@@ -119,6 +120,7 @@ impl Config {
 fn parse_as_web(
     oracle_location: &str,
     cypher_text: &str,
+    plain_text: Option<&str>,
     block_size: BlockSize,
     log_level: LevelFilter,
     sub_command: &str,
@@ -146,27 +148,26 @@ fn parse_as_web(
         .expect("No default value for argument `keyword`");
 
     let web_config = WebConfig {
-        post_data: args.value_of("data").map(|d| d.to_owned()),
+        post_data: args.value_of("data").map(|data| data.to_owned()),
         headers: match args.values_of("header") {
             Some(headers) => split_headers(headers)?,
-            None => Vec::new(),
+            None => vec![],
         },
         keyword: keyword.into(),
         user_agent: args
             .value_of("user_agent")
-            .map(|d| d.replace(VERSION_TEMPLATE, VERSION))
+            .map(|agent| agent.replace(VERSION_TEMPLATE, VERSION))
             .expect("No default value for argument `user_agent`"),
 
         redirect: args.value_of("redirect").is_some(),
         insecure: args.value_of("insecure").is_some(),
         consider_body: args.value_of("consider_body").is_some(),
-
-        padding_error_response: None,
     };
 
     Ok(Config {
         oracle_location: OracleLocation::new(oracle_location, sub_command)?,
-        cypher_text: cypher_text.to_string(),
+        cypher_text: CypherText::parse(cypher_text, &block_size)?,
+        plain_text: plain_text.map(|plain_text| PlainText::new(plain_text, &block_size)),
         block_size,
         log_level,
         // all blocks, except the 0-th which is the IV, are to be decrypted.
@@ -178,6 +179,7 @@ fn parse_as_web(
 fn parse_as_script(
     oracle_location: &str,
     cypher_text: &str,
+    plain_text: Option<&str>,
     block_size: BlockSize,
     log_level: LevelFilter,
     sub_command: &str,
@@ -185,7 +187,8 @@ fn parse_as_script(
 ) -> Result<Config> {
     Ok(Config {
         oracle_location: OracleLocation::new(oracle_location, sub_command)?,
-        cypher_text: cypher_text.to_string(),
+        cypher_text: CypherText::parse(cypher_text, &block_size)?,
+        plain_text: plain_text.map(|plain_text| PlainText::new(plain_text, &block_size)),
         block_size,
         log_level,
         // all blocks, except the 0-th which is the IV, are to be decrypted.

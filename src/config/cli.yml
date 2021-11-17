@@ -11,7 +11,7 @@ settings:
     - ColorAuto
     - ColoredHelp
 args:
-    # TODO: these 3 should be global, such that they can be placed after subcommand specifiers. But required globals are not supported by `clap`
+    # TODO: following should be global, such that they can be placed after subcommand specifiers. But required globals are not supported by `clap`
     # https://github.com/clap-rs/clap/issues/1546
     - oracle:
         help: Oracle to question
@@ -23,22 +23,32 @@ args:
         takes_value: true
         required: true
         # global: true
-    - cypher_text:
-        help: Original cypher text
-        long_help: Original cypher text received from the target service
-        aliases: ctext
-        short: C
-        long: cypher-text
-        takes_value: true
-        required: true
-        # global: true
     - block_size:
         help: Block size used by the cypher
         short: B
         long: block-size
+        aliases: ["block_size"]
         possible_values: [ "8", "16" ]
         takes_value: true
         required: true
+        # global: true
+    - decrypt:
+        help: Cypher text to decrypt
+        long_help: Original cypher text, received from the target service, which is to be decrypted
+        short: D
+        long: cypher-text
+        aliases: ["cypher_text", "ctext"]
+        takes_value: true
+        required: true
+        # global: true
+    - encrypt:
+        help: Plain text to encrypt
+        long_help: Plain text to encrypt. Encryption mode requires a cypher text to gather necessary data
+        short: E
+        long: plain-text
+        aliases: [ "plain_text", "ptext"]
+        takes_value: true
+        requires: decrypt
         # global: true
     - verbose:
         help: Increase verbosity
@@ -47,6 +57,7 @@ args:
         long: verbose
         multiple: true
         global: true
+
 subcommands:
     - web:
         about: Question a web-based oracle
@@ -91,14 +102,15 @@ subcommands:
             - consider_body:
                 help: Consider the body during calibration
                 long_help: Consider the response body and content length when determining how the web oracle responds to (in)correct padding
-                aliases: consider_content
                 short: c
                 long: consider-body
+                aliases: ["consider_body", "consider-content", "consider_content"]
                 takes_value: false
             - user_agent:
                 help: User-agent to identify with
                 short: A
                 long: user-agent
+                aliases: ["user_agent"]
                 # `<version>` is replaced in config parsing to show correct version
                 default_value: rustpad/<version>
                 takes_value: true

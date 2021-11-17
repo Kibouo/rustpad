@@ -3,6 +3,7 @@ pub mod calibrate_web;
 use std::{collections::HashMap, str::FromStr};
 
 use anyhow::{anyhow, Context, Result};
+use getset::Setters;
 use reqwest::{
     blocking::{Client, ClientBuilder},
     header::{HeaderMap, HeaderName, HeaderValue},
@@ -11,18 +12,21 @@ use reqwest::{
 };
 
 use crate::{
+    calibrator::calibration_response::CalibrationResponse,
     config::{SubConfig, WebConfig},
     cypher_text::encode::Encode,
-    mediator::calibration_response::CalibrationResponse,
 };
 
 use super::{oracle_location::OracleLocation, Oracle};
 
+#[derive(Setters)]
 pub struct WebOracle {
     url: Url,
     config: WebConfig,
     web_client: Client,
     keyword_locations: Vec<KeywordLocation>,
+    #[getset(set = "pub")]
+    padding_error_response: Option<CalibrationResponse>,
 }
 
 impl Oracle for WebOracle {
@@ -30,16 +34,14 @@ impl Oracle for WebOracle {
         let url = match oracle_location {
             OracleLocation::Web(url) => url,
             OracleLocation::Script(_) => {
-                return Err(anyhow!("Tried to visit the web oracle using a file path!"));
+                panic!("Tried to visit the web oracle using a file path!");
             }
         };
 
         let oracle_config = match oracle_config {
             SubConfig::Web(config) => config,
             SubConfig::Script(_) => {
-                return Err(anyhow!(
-                    "Tried to visit the web oracle using script configs!"
-                ));
+                panic!("Tried to visit the web oracle using script configs!");
             }
         };
 
@@ -64,6 +66,7 @@ impl Oracle for WebOracle {
             config: oracle_config.clone(),
             web_client,
             keyword_locations,
+            padding_error_response: None,
         };
         Ok(oracle)
     }
@@ -73,7 +76,7 @@ impl Oracle for WebOracle {
             &self.url,
             &self.config,
             self.keyword_locations.iter(),
-            &cypher_text.encode()?,
+            &cypher_text.encode(),
         )
         .context("Replacing all occurrences of keyword failed")?;
 
@@ -91,7 +94,7 @@ impl Oracle for WebOracle {
         let response = request.send().context("Sending request failed")?;
         let response = CalibrationResponse::from_response(response, *self.config.consider_body())?;
 
-        let padding_error_response = self.config.padding_error_response().as_ref().ok_or_else(|| anyhow!("Web oracle not calibrated. We don't know how an (in)correct padding response looks like"))?;
+        let padding_error_response = self.padding_error_response.as_ref().expect("Web oracle not calibrated. We don't know how an (in)correct padding response looks like");
 
         Ok(response != *padding_error_response)
     }
