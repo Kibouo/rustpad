@@ -115,19 +115,17 @@ fn decode(input_data: &str) -> Result<(Vec<u8>, Encoding)> {
         return Ok((decoded_data, Encoding::Base64Web));
     }
 
-    // TODO: improve error message
+    // TODO: improve error message with `encoding` flag option
     Err(anyhow!(
         "{} is not valid base64, base64 (web-safe), or hex",
         input_data
     ))
 }
 
-// TODO: improve error message with block size option?
-// TODO: check for similar things (usually `Err(anyhow!)`)
 fn split_into_blocks(decoded_data: &[u8], block_size: BlockSize) -> Result<Vec<Block>> {
     if decoded_data.len() % (*block_size as usize) != 0 {
         return Err(anyhow!(
-            "Splitting cypher text into blocks of size {} failed",
+            "Splitting cypher text into blocks of {} bytes failed. Double check the block size",
             *block_size
         ));
     }

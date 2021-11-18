@@ -380,16 +380,12 @@ impl Tui {
     fn handle_user_event(&self, event: Event) {
         match event {
             Event::Key(pressed_key) => {
-                // re-implement CTRL+C which was disabled by raw-mode
-                if pressed_key.modifiers == KeyModifiers::CONTROL
-                    && pressed_key.code == KeyCode::Char('c')
-                {
-                    self.exit(0);
-                }
-
                 match pressed_key.code {
-                    KeyCode::Esc => {
-                        self.exit(0);
+                    KeyCode::Char(char_key) => {
+                        // re-implement CTRL+C which was disabled by raw-mode
+                        if char_key == 'c' && pressed_key.modifiers == KeyModifiers::CONTROL {
+                            self.exit(0);
+                        }
                     }
                     KeyCode::PageUp => {
                         self.ui_state

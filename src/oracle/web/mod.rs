@@ -48,7 +48,7 @@ impl Oracle for WebOracle {
         let keyword_locations = keyword_location(url, oracle_config);
         if keyword_locations.is_empty() {
             return Err(anyhow!(
-                "Keyword not found in URL, headers, or POST data. See `--keyword` for further info"
+                "Keyword not found in URL, headers, or POST data. Double check whether you indicated the cypher text's location. See `--keyword` for extra info"
             ));
         }
 

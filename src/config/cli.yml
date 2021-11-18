@@ -36,8 +36,8 @@ args:
         help: Cypher text to decrypt
         long_help: Original cypher text, received from the target service, which is to be decrypted
         short: D
-        long: cypher-text
-        aliases: ["cypher_text", "ctext"]
+        long: decrypt
+        aliases: ["cypher-text", "cypher_text", "ctext"]
         takes_value: true
         required: true
         # global: true
@@ -45,8 +45,8 @@ args:
         help: Plain text to encrypt
         long_help: Plain text to encrypt. Encryption mode requires a cypher text to gather necessary data
         short: E
-        long: plain-text
-        aliases: [ "plain_text", "ptext"]
+        long: encrypt
+        aliases: [ "plain-text", "plain_text", "ptext"]
         takes_value: true
         requires: decrypt
         # global: true
