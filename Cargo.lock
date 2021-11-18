@@ -1340,6 +1340,7 @@ dependencies = [
  "anyhow",
  "async-scoped",
  "async-std",
+ "atty",
  "base64",
  "clap",
  "crossbeam",

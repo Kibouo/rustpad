@@ -94,8 +94,11 @@ impl<'a> Calibrator<'a> {
         if *oracle.config().consider_body() {
             info!(
                 target: LOG_TARGET,
-                "- Content length: {:?}",
-                padding_error_response.content_length()
+                "- Content length: {}",
+                padding_error_response
+                    .content_length()
+                    .map(|length| length.to_string())
+                    .unwrap_or_else(|| "?".to_string())
             );
         }
 

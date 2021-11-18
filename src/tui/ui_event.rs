@@ -34,5 +34,7 @@ pub enum UiControlEvent {
     IndicateWork(usize),
     ProgressUpdate(usize), // inform UI that x bytes are solved
     PrintAfterExit(String),
+    ExitCode(i32),
+    /// The application is done. Basically indicates that the program should stop running, without actually quitting. This keeps the UI open for users to read the output, while also decreasing the amount of draw calls.
     SlowRedraw,
 }

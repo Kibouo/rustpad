@@ -28,3 +28,4 @@ futures = "0.3"
 futures-timer = "3.0"
 async-std = "1.10"
 async-scoped = { version = "0.7", default-features = false, features = ["use-async-std"] }
+atty = "0.2"

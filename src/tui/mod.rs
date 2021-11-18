@@ -7,7 +7,7 @@ use std::{
     io::{self},
     process,
     sync::{
-        atomic::{AtomicBool, AtomicU16, AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicI32, AtomicU16, AtomicUsize, Ordering},
         Mutex,
     },
     thread::sleep,
@@ -15,6 +15,7 @@ use std::{
 };
 
 use anyhow::{Context, Result};
+use atty::Stream;
 use crossterm::{
     cursor::Show,
     event::{Event, EventStream, KeyCode, KeyModifiers},
@@ -54,6 +55,7 @@ pub(super) struct Tui {
     rows: AtomicU16,
     // because we enter a "different terminal" during the application's runtime, nothing is left when the user exits the program. This stores a list of messages to print after leaving the "different terminal", but before quitting the application
     print_after_exit: Mutex<Vec<String>>,
+    exit_code: AtomicI32,
 
     ui_state: UiState,
     app_state: AppState,
@@ -98,6 +100,7 @@ impl Tui {
             cols,
             rows,
             print_after_exit: Mutex::new(vec![]),
+            exit_code: AtomicI32::new(0),
 
             ui_state: UiState {
                 running: AtomicBool::new(true),
@@ -123,7 +126,7 @@ impl Tui {
     }
 
     /// Clean up terminal "hi-jacking". Ignores errors to try restore as much as possible
-    pub(super) fn exit(&self, exit_code: i32) {
+    pub(super) fn exit(&self) {
         let _ = disable_raw_mode();
 
         let (cols, rows) = {
@@ -139,11 +142,17 @@ impl Tui {
             Show
         );
 
+        // we could separate `self.print_after_exit` into a stdout and a stderr version, but (for now) it's unneeded for our use case
+        let use_stderr = self.exit_code.load(Ordering::Relaxed) != 0;
         for message in self.print_after_exit.lock().unwrap().drain(..) {
-            println!("{}", message);
+            if use_stderr {
+                eprintln!("{}", message);
+            } else {
+                println!("{}", message);
+            }
         }
 
-        process::exit(exit_code);
+        process::exit(self.exit_code.load(Ordering::Relaxed));
     }
 
     pub(super) async fn main_loop(&self) -> Result<()> {
@@ -170,7 +179,9 @@ impl Tui {
         }
 
         // 1 last draw to ensure errors are displayed
-        self.draw().context("Drawing UI failed").map(|_| ())
+        self.draw().context("Drawing UI failed")?;
+
+        Ok(())
     }
 
     // need to handle user input async. Scrolling can generate too many events which crashes the app :)
@@ -327,7 +338,14 @@ impl Tui {
             UiControlEvent::PrintAfterExit(message) => {
                 self.print_after_exit.lock().unwrap().push(message);
             }
+            UiControlEvent::ExitCode(code) => {
+                self.exit_code.store(code, Ordering::Relaxed);
+            }
             UiControlEvent::SlowRedraw => {
+                // keeping the UI running/application open without a TTY is useless. The user can't read anything anyway
+                if !atty::is(Stream::Stdout) {
+                    self.exit();
+                }
                 self.ui_state.slow_redraw.store(true, Ordering::Relaxed);
             }
         }
@@ -340,39 +358,43 @@ impl Tui {
     }
 
     fn draw(&self) -> Result<&Self> {
-        self.terminal.lock().unwrap().draw(|frame| {
-            let layout = TuiLayout::calculate(frame.size(), self.min_width_for_horizontal_layout);
-            let widgets = Widgets::build(&self.app_state, &self.ui_state);
+        // only draw UI if in a TTY. This allows users to redirect output to a file
+        if atty::is(Stream::Stdout) {
+            self.terminal.lock().unwrap().draw(|frame| {
+                let layout =
+                    TuiLayout::calculate(frame.size(), self.min_width_for_horizontal_layout);
+                let widgets = Widgets::build(&self.app_state, &self.ui_state);
 
-            frame.render_widget(widgets.outer_border, frame.size());
+                frame.render_widget(widgets.outer_border, frame.size());
 
-            let mut blocks_view_state = self.ui_state.blocks_view_state.lock().unwrap().clone();
-            frame.render_stateful_widget(
-                widgets.original_cypher_text_view,
-                *layout.original_cypher_text_area(),
-                &mut blocks_view_state,
-            );
-            frame.render_stateful_widget(
-                widgets.forged_block_view,
-                *layout.forged_block_area(),
-                &mut blocks_view_state,
-            );
-            frame.render_stateful_widget(
-                widgets.intermediate_block_view,
-                *layout.intermediate_block_area(),
-                &mut blocks_view_state,
-            );
-            frame.render_stateful_widget(
-                widgets.plain_text_view,
-                *layout.plain_text_area(),
-                &mut blocks_view_state,
-            );
+                let mut blocks_view_state = self.ui_state.blocks_view_state.lock().unwrap().clone();
+                frame.render_stateful_widget(
+                    widgets.original_cypher_text_view,
+                    *layout.original_cypher_text_area(),
+                    &mut blocks_view_state,
+                );
+                frame.render_stateful_widget(
+                    widgets.forged_block_view,
+                    *layout.forged_block_area(),
+                    &mut blocks_view_state,
+                );
+                frame.render_stateful_widget(
+                    widgets.intermediate_block_view,
+                    *layout.intermediate_block_area(),
+                    &mut blocks_view_state,
+                );
+                frame.render_stateful_widget(
+                    widgets.plain_text_view,
+                    *layout.plain_text_area(),
+                    &mut blocks_view_state,
+                );
 
-            frame.render_widget(widgets.status_panel_border, *layout.status_panel_area());
-            frame.render_widget(widgets.progress_bar, *layout.progress_bar_area());
-            // no `render_stateful_widget` as `TuiLoggerWidget` doesn't implement `StatefulWidget`, but handles it custom
-            frame.render_widget(widgets.logs_view, *layout.logs_area());
-        })?;
+                frame.render_widget(widgets.status_panel_border, *layout.status_panel_area());
+                frame.render_widget(widgets.progress_bar, *layout.progress_bar_area());
+                // no `render_stateful_widget` as `TuiLoggerWidget` doesn't implement `StatefulWidget`, but handles it custom
+                frame.render_widget(widgets.logs_view, *layout.logs_area());
+            })?;
+        }
 
         Ok(self)
     }
@@ -384,7 +406,7 @@ impl Tui {
                     KeyCode::Char(char_key) => {
                         // re-implement CTRL+C which was disabled by raw-mode
                         if char_key == 'c' && pressed_key.modifiers == KeyModifiers::CONTROL {
-                            self.exit(0);
+                            self.exit();
                         }
                     }
                     KeyCode::PageUp => {

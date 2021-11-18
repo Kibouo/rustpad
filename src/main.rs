@@ -49,11 +49,21 @@ fn main() -> Result<()> {
             if let Err(e) = task::block_on(tui.main_loop()) {
                 error!(target: LOG_TARGET, "{:?}", e);
                 // logic thread can stop the draw main loop, but there is no such thing the other way around
-                tui.exit(1)
+                update_ui_callback(UiEvent::Control(UiControlEvent::PrintAfterExit(format!(
+                    "Error: {:?}",
+                    e
+                ))));
+                update_ui_callback(UiEvent::Control(UiControlEvent::ExitCode(1)));
+                tui.exit()
             }
         }) {
             error!(target: LOG_TARGET, "{:?}", e);
-            tui.exit(1)
+            update_ui_callback(UiEvent::Control(UiControlEvent::PrintAfterExit(format!(
+                "Error: {:?}",
+                e
+            ))));
+            update_ui_callback(UiEvent::Control(UiControlEvent::ExitCode(2)));
+            tui.exit()
         }
 
         if let Err(e) = scope
@@ -62,11 +72,21 @@ fn main() -> Result<()> {
             .spawn(|_| {
                 if let Err(e) = logic_preparation(config, update_ui_callback) {
                     error!(target: LOG_TARGET, "{:?}", e);
+                    update_ui_callback(UiEvent::Control(UiControlEvent::PrintAfterExit(format!(
+                        "Error: {:?}",
+                        e
+                    ))));
+                    update_ui_callback(UiEvent::Control(UiControlEvent::ExitCode(3)));
                     (update_ui_callback)(UiEvent::Control(UiControlEvent::SlowRedraw));
                 }
             })
         {
             error!(target: LOG_TARGET, "{:?}", e);
+            update_ui_callback(UiEvent::Control(UiControlEvent::PrintAfterExit(format!(
+                "Error: {:?}",
+                e
+            ))));
+            update_ui_callback(UiEvent::Control(UiControlEvent::ExitCode(4)));
             (update_ui_callback)(UiEvent::Control(UiControlEvent::SlowRedraw));
         }
     })
