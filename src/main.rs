@@ -12,6 +12,7 @@ mod tui;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
+use async_std::task;
 use block::block_size::BlockSizeTrait;
 use crossbeam::thread;
 use cypher_text::encode::{AmountBlocksTrait, Encode};
@@ -45,7 +46,7 @@ fn main() -> Result<()> {
     let update_ui_callback = |event| tui.handle_application_event(event);
     thread::scope(|scope| {
         if let Err(e) = scope.builder().name("TUI".to_string()).spawn(|_| {
-            if let Err(e) = tui.main_loop() {
+            if let Err(e) = task::block_on(tui.main_loop()) {
                 error!(target: LOG_TARGET, "{:?}", e);
                 // logic thread can stop the draw main loop, but there is no such thing the other way around
                 tui.exit(1)
@@ -129,7 +130,7 @@ fn logic_main<U>(
     decryptor: &Decryptor<U>,
     oracle: &impl Oracle,
     encryption_mode: bool,
-    update_ui_callback: U,
+    mut update_ui_callback: U,
     config: &Config,
 ) -> Result<()>
 where
@@ -171,15 +172,17 @@ where
             last_block.block_to_decrypt().clone(),
         )));
 
-        let encryptor = Encryptor::new(update_ui_callback, last_block);
+        let encryptor = Encryptor::new(update_ui_callback.clone(), last_block);
 
-        let encrypted_plain_text = encryptor.encrypt_plain_text(
-            config
-                .plain_text()
-                .as_ref()
-                .expect("Should have a plain text in encryption mode"),
-            oracle,
-        )?;
+        let encrypted_plain_text = encryptor
+            .encrypt_plain_text(
+                config
+                    .plain_text()
+                    .as_ref()
+                    .expect("Should have a plain text in encryption mode"),
+                oracle,
+            )?
+            .encode();
 
         info!(
             target: LOG_TARGET,
@@ -188,23 +191,30 @@ where
         );
         info!(
             target: LOG_TARGET,
-            "Their divination is: {}",
-            encrypted_plain_text.encode()
+            "Their divination is: {}", encrypted_plain_text
         );
+        (update_ui_callback)(UiEvent::Control(UiControlEvent::PrintAfterExit(
+            encrypted_plain_text,
+        )));
     } else {
         info!(
             target: LOG_TARGET,
             "The oracle talked some gibberish. It took {}",
             format_duration(Duration::new(now.elapsed().as_secs(), 0))
         );
+
         let plain_text_solution: String = decryption_results
             .iter()
             .map(|forged_cypher_text| forged_cypher_text.plain_text_solution())
             .collect();
+
         info!(
             target: LOG_TARGET,
             "Their divination is: {}", plain_text_solution
         );
+        (update_ui_callback)(UiEvent::Control(UiControlEvent::PrintAfterExit(
+            plain_text_solution,
+        )));
     };
 
     Ok(())

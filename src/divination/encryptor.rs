@@ -50,8 +50,9 @@ where
             let intermediate = if i == 0 {
                 let block_solution = self.initial_block.forged_block_solution();
 
+                // encryption of this block is already finished as it's identical to decryption of the initial block
                 (self.update_ui_callback.clone())(UiEvent::Control(
-                    UiControlEvent::ProgressUpdate(8),
+                    UiControlEvent::ProgressUpdate(*plain_text_block.block_size() as usize),
                 ));
                 (self.update_ui_callback.clone())(UiEvent::Encryption(
                     UiEncryptionEvent::BlockSolved(

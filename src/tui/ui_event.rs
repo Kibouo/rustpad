@@ -33,5 +33,6 @@ pub enum UiEncryptionEvent {
 pub enum UiControlEvent {
     IndicateWork(usize),
     ProgressUpdate(usize), // inform UI that x bytes are solved
+    PrintAfterExit(String),
     SlowRedraw,
 }

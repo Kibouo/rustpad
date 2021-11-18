@@ -7,7 +7,7 @@ use std::{
     io::{self},
     process,
     sync::{
-        atomic::{AtomicBool, AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicU16, AtomicUsize, Ordering},
         Mutex,
     },
     thread::sleep,
@@ -16,15 +16,25 @@ use std::{
 
 use anyhow::{Context, Result};
 use crossterm::{
-    event::{self, Event, KeyCode, KeyModifiers},
-    terminal::{disable_raw_mode, enable_raw_mode},
+    cursor::Show,
+    event::{Event, EventStream, KeyCode, KeyModifiers},
+    execute,
+    terminal::{
+        disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen, SetSize,
+    },
 };
+use futures::FutureExt;
+use futures_timer::Delay;
+use log::error;
 use tui::{backend::CrosstermBackend, widgets::TableState, Terminal};
 use tui_logger::{TuiWidgetEvent, TuiWidgetState};
 
-use crate::block::{
-    block_size::{BlockSize, BlockSizeTrait},
-    Block,
+use crate::{
+    block::{
+        block_size::{BlockSize, BlockSizeTrait},
+        Block,
+    },
+    logging::LOG_TARGET,
 };
 
 use self::{
@@ -34,11 +44,16 @@ use self::{
 };
 
 const FRAME_SLEEP_MS: u64 = 20;
+const INPUT_POLL_MS: u64 = 50;
 
 pub(super) struct Tui {
     // the usage of a mutex here could be prevented by separating `Terminal` from `Tui`, it's only needed in the draw thread. However, the overhead of handling the mutex should be so small (especially given that only the draw thread accesses it) should be so small that it's unneeded.
     terminal: Mutex<Terminal<CrosstermBackend<io::Stdout>>>,
     min_width_for_horizontal_layout: u16,
+    cols: AtomicU16,
+    rows: AtomicU16,
+    // because we enter a "different terminal" during the application's runtime, nothing is left when the user exits the program. This stores a list of messages to print after leaving the "different terminal", but before quitting the application
+    print_after_exit: Mutex<Vec<String>>,
 
     ui_state: UiState,
     app_state: AppState,
@@ -67,16 +82,22 @@ struct AppState {
 impl Tui {
     pub(super) fn new(block_size: &BlockSize) -> Result<Self> {
         enable_raw_mode()?;
+        let mut stdout = io::stdout();
+        execute!(stdout, EnterAlternateScreen)?;
 
-        let stdout = io::stdout();
         let backend = CrosstermBackend::new(stdout);
         let mut terminal = Terminal::new(backend)?;
         terminal.clear().context("Clearing terminal failed")?;
+        let cols = AtomicU16::new(terminal.size()?.width);
+        let rows = AtomicU16::new(terminal.size()?.height);
 
         let tui = Self {
             terminal: Mutex::new(terminal),
             // enough space to display 2 tables of hex encoded blocks + padding
             min_width_for_horizontal_layout: (**block_size as usize * 12) as u16,
+            cols,
+            rows,
+            print_after_exit: Mutex::new(vec![]),
 
             ui_state: UiState {
                 running: AtomicBool::new(true),
@@ -101,20 +122,41 @@ impl Tui {
         Ok(tui)
     }
 
+    /// Clean up terminal "hi-jacking". Ignores errors to try restore as much as possible
     pub(super) fn exit(&self, exit_code: i32) {
-        disable_raw_mode().expect("Raw mode disabling failed");
-        self.terminal
-            .lock()
-            .unwrap()
-            .show_cursor()
-            .expect("Un-hiding cursor failed");
+        let _ = disable_raw_mode();
+
+        let (cols, rows) = {
+            (
+                self.cols.load(Ordering::Relaxed),
+                self.rows.load(Ordering::Relaxed),
+            )
+        };
+        let _ = execute!(
+            io::stdout(),
+            LeaveAlternateScreen,
+            SetSize(cols, rows),
+            Show
+        );
+
+        for message in self.print_after_exit.lock().unwrap().drain(..) {
+            println!("{}", message);
+        }
+
         process::exit(exit_code);
     }
 
-    pub(super) fn main_loop(&self) -> Result<()> {
-        while self.ui_state.running.load(Ordering::Relaxed) {
-            self.handle_user_event()?;
+    pub(super) async fn main_loop(&self) -> Result<()> {
+        let (_, outputs) = async_scoped::AsyncScope::scope_and_block(|scope| {
+            scope.spawn(self.draw_loop());
+            scope.spawn(self.input_loop());
+        });
 
+        outputs.into_iter().collect()
+    }
+
+    async fn draw_loop(&self) -> Result<()> {
+        while self.ui_state.running.load(Ordering::Relaxed) {
             if self.need_redraw() {
                 self.draw().context("Drawing UI failed")?;
                 self.ui_state.redraw.store(false, Ordering::Relaxed);
@@ -129,6 +171,31 @@ impl Tui {
 
         // 1 last draw to ensure errors are displayed
         self.draw().context("Drawing UI failed").map(|_| ())
+    }
+
+    // need to handle user input async. Scrolling can generate too many events which crashes the app :)
+    async fn input_loop(&self) -> Result<()> {
+        let mut reader = EventStream::new();
+
+        while self.ui_state.running.load(Ordering::Relaxed) {
+            let mut delay = Delay::new(Duration::from_millis(INPUT_POLL_MS)).fuse();
+            let mut event = futures::StreamExt::next(&mut reader).fuse();
+
+            futures::select_biased! {
+                maybe_event = event => {
+                    if let Some(fallible_event) = maybe_event {
+                        match fallible_event {
+                            Ok(event) => self.handle_user_event(event),
+                            Err(e) => error!(target: LOG_TARGET, "{:?}", e),
+                        }
+                    }
+                    // else no event
+                },
+                _ = delay => { /* no event */ }
+            }
+        }
+
+        Ok(())
     }
 
     pub(super) fn handle_application_event(&self, event: UiEvent) {
@@ -257,6 +324,9 @@ impl Tui {
                     .bytes_finished
                     .fetch_add(newly_solved_bytes, Ordering::Relaxed);
             }
+            UiControlEvent::PrintAfterExit(message) => {
+                self.print_after_exit.lock().unwrap().push(message);
+            }
             UiControlEvent::SlowRedraw => {
                 self.ui_state.slow_redraw.store(true, Ordering::Relaxed);
             }
@@ -307,63 +377,65 @@ impl Tui {
         Ok(self)
     }
 
-    fn handle_user_event(&self) -> Result<()> {
-        if event::poll(Duration::from_millis(0))? {
-            let event = event::read()?;
-            match event {
-                Event::Key(pressed_key) => {
-                    // re-implement CTRL+C which was disabled by raw-mode
-                    if pressed_key.modifiers == KeyModifiers::CONTROL
-                        && pressed_key.code == KeyCode::Char('c')
-                    {
+    fn handle_user_event(&self, event: Event) {
+        match event {
+            Event::Key(pressed_key) => {
+                // re-implement CTRL+C which was disabled by raw-mode
+                if pressed_key.modifiers == KeyModifiers::CONTROL
+                    && pressed_key.code == KeyCode::Char('c')
+                {
+                    self.exit(0);
+                }
+
+                match pressed_key.code {
+                    KeyCode::Esc => {
                         self.exit(0);
                     }
-
-                    match pressed_key.code {
-                        KeyCode::PageUp => {
-                            self.ui_state
-                                .log_view_state
-                                .lock()
-                                .unwrap()
-                                .transition(&TuiWidgetEvent::PrevPageKey);
-                        }
-                        KeyCode::PageDown => {
-                            self.ui_state
-                                .log_view_state
-                                .lock()
-                                .unwrap()
-                                .transition(&TuiWidgetEvent::NextPageKey);
-                        }
-                        KeyCode::Up => {
-                            let mut state = self.ui_state.blocks_view_state.lock().unwrap();
-                            let new_selection = state
+                    KeyCode::PageUp => {
+                        self.ui_state
+                            .log_view_state
+                            .lock()
+                            .unwrap()
+                            .transition(&TuiWidgetEvent::PrevPageKey);
+                    }
+                    KeyCode::PageDown => {
+                        self.ui_state
+                            .log_view_state
+                            .lock()
+                            .unwrap()
+                            .transition(&TuiWidgetEvent::NextPageKey);
+                    }
+                    KeyCode::Up => {
+                        let mut state = self.ui_state.blocks_view_state.lock().unwrap();
+                        let new_selection = state
                                 .selected()
                                 // prevent underflow which would wrap around and become more than 0
                                 .map(|idx| if idx == 0 { 0 } else { max(idx - 1, 0) })
                                 .unwrap_or_default();
-                            state.select(Some(new_selection));
-                        }
-                        KeyCode::Down => {
-                            let mut state = self.ui_state.blocks_view_state.lock().unwrap();
-                            let new_selection = state
-                                .selected()
-                                .map(|idx| {
-                                    min(
-                                        idx + 1,
-                                        self.app_state.cypher_text_blocks.lock().unwrap().len() - 1,
-                                    )
-                                })
-                                .unwrap_or(1);
-                            state.select(Some(new_selection));
-                        }
-                        _ => {}
-                    };
-                }
-                Event::Resize(_, _) => self.ui_state.redraw.store(true, Ordering::Relaxed),
-                Event::Mouse(_) => {}
-            };
-        }
-
-        Ok(())
+                        state.select(Some(new_selection));
+                    }
+                    KeyCode::Down => {
+                        let mut state = self.ui_state.blocks_view_state.lock().unwrap();
+                        let new_selection = state
+                            .selected()
+                            .map(|idx| {
+                                min(
+                                    idx + 1,
+                                    self.app_state.cypher_text_blocks.lock().unwrap().len() - 1,
+                                )
+                            })
+                            .unwrap_or(1);
+                        state.select(Some(new_selection));
+                    }
+                    _ => {}
+                };
+            }
+            Event::Resize(cols, rows) => {
+                self.cols.store(cols, Ordering::Relaxed);
+                self.rows.store(rows, Ordering::Relaxed);
+                self.ui_state.redraw.store(true, Ordering::Relaxed);
+            }
+            Event::Mouse(_) => {}
+        };
     }
 }
