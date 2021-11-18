@@ -10,5 +10,3 @@
     - response text should contain x
 - log to file
 - proxy
-- add marketing
-    - GitHub & GitLab sync? https://dev.to/brunorobert/github-and-gitlab-sync-44mn
