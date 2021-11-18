@@ -62,13 +62,13 @@ impl<'a> Encode<'a> for CypherText {
 
     fn encode(&'a self) -> String {
         let raw_bytes: Vec<u8> = self
-        .blocks()
-        .iter()
-        .map(|block| &**block)
-        .flatten()
-        // blocks are scattered through memory, gotta collect them
-        .cloned()
-        .collect();
+            .blocks()
+            .iter()
+            .map(|block| &**block)
+            .flatten()
+            // blocks are scattered through memory, gotta collect them
+            .cloned()
+            .collect();
 
         let encoded_data = match self.used_encoding() {
             Encoding::Base64 => base64::encode_config(raw_bytes, base64::STANDARD),

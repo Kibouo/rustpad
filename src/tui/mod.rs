@@ -426,10 +426,10 @@ impl Tui {
                     KeyCode::Up => {
                         let mut state = self.ui_state.blocks_view_state.lock().unwrap();
                         let new_selection = state
-                                .selected()
-                                // prevent underflow which would wrap around and become more than 0
-                                .map(|idx| if idx == 0 { 0 } else { max(idx - 1, 0) })
-                                .unwrap_or_default();
+                            .selected()
+                            // prevent underflow which would wrap around and become more than 0
+                            .map(|idx| if idx == 0 { 0 } else { max(idx - 1, 0) })
+                            .unwrap_or_default();
                         state.select(Some(new_selection));
                     }
                     KeyCode::Down => {

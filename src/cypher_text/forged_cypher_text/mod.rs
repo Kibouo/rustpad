@@ -107,7 +107,8 @@ impl<'a> Encode<'a> for ForgedCypherText<'a> {
             .forged_block_wip
             .to_adjusted_for_padding(*self.block_size() - self.current_byte_idx as u8);
 
-        let raw_bytes: Vec<u8> = prefix_blocks.iter()
+        let raw_bytes: Vec<u8> = prefix_blocks
+            .iter()
             .chain([&forged_block_with_padding_adjusted].into_iter())
             .chain([to_decrypt_block].into_iter())
             .map(|block| &**block)
