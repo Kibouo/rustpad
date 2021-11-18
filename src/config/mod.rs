@@ -79,6 +79,7 @@ impl Config {
             1 => LevelFilter::Debug,
             _ => LevelFilter::Trace,
         };
+        let no_iv = args.is_present("no_iv");
         let cypher_text = args
             .value_of("decrypt")
             .expect("No required argument `decrypt` found");
@@ -96,6 +97,7 @@ impl Config {
                     plain_text,
                     block_size,
                     log_level,
+                    no_iv,
                     sub_command,
                     sub_command_args,
                 )
@@ -108,6 +110,7 @@ impl Config {
                     plain_text,
                     block_size,
                     log_level,
+                    no_iv,
                     sub_command,
                     sub_command_args,
                 )
@@ -117,12 +120,14 @@ impl Config {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn parse_as_web(
     oracle_location: &str,
     cypher_text: &str,
     plain_text: Option<&str>,
     block_size: BlockSize,
     log_level: LevelFilter,
+    no_iv: bool,
     sub_command: &str,
     args: &ArgMatches,
 ) -> Result<Config> {
@@ -159,41 +164,40 @@ fn parse_as_web(
             .map(|agent| agent.replace(VERSION_TEMPLATE, VERSION))
             .expect("No default value for argument `user_agent`"),
 
-        redirect: args.value_of("redirect").is_some(),
-        insecure: args.value_of("insecure").is_some(),
-        consider_body: args.value_of("consider_body").is_some(),
+        redirect: args.is_present("redirect"),
+        insecure: args.is_present("insecure"),
+        consider_body: args.is_present("consider_body"),
     };
 
     Ok(Config {
         oracle_location: OracleLocation::new(oracle_location, sub_command)?,
-        cypher_text: CypherText::parse(cypher_text, &block_size)?,
+        cypher_text: CypherText::parse(cypher_text, &block_size, no_iv)?,
         plain_text: plain_text.map(|plain_text| PlainText::new(plain_text, &block_size)),
         block_size,
         log_level,
-        // all blocks, except the 0-th which is the IV, are to be decrypted.
-        no_iv: false,
+        no_iv,
         sub_config: SubConfig::Web(web_config),
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 fn parse_as_script(
     oracle_location: &str,
     cypher_text: &str,
     plain_text: Option<&str>,
     block_size: BlockSize,
     log_level: LevelFilter,
+    no_iv: bool,
     sub_command: &str,
     _args: &ArgMatches,
 ) -> Result<Config> {
     Ok(Config {
         oracle_location: OracleLocation::new(oracle_location, sub_command)?,
-        cypher_text: CypherText::parse(cypher_text, &block_size)?,
+        cypher_text: CypherText::parse(cypher_text, &block_size, no_iv)?,
         plain_text: plain_text.map(|plain_text| PlainText::new(plain_text, &block_size)),
         block_size,
         log_level,
-        // all blocks, except the 0-th which is the IV, are to be decrypted.
-        // This could change with a "noiv" option
-        no_iv: false,
+        no_iv,
         sub_config: SubConfig::Script(ScriptConfig {}),
     })
 }

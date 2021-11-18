@@ -46,10 +46,17 @@ args:
         long_help: Plain text to encrypt. Encryption mode requires a cypher text to gather necessary data
         short: E
         long: encrypt
-        aliases: [ "plain-text", "plain_text", "ptext"]
+        aliases: ["plain-text", "plain_text", "ptext"]
         takes_value: true
         requires: decrypt
         # global: true
+    - no_iv:
+        help: Cypher text without IV
+        long_help: Cypher text does not include an Initialisation Vector
+        short: n
+        long: no-iv
+        aliases: ["no_iv", "noiv"]
+        global: true
     - verbose:
         help: Increase verbosity
         long_help: Increase verbosity of logging
@@ -94,14 +101,14 @@ subcommands:
                 takes_value: false
             - keyword:
                 help: Keyword indicating the cypher text
-                long_help: This keyword indicates the location of the cypher text in the HTTP request. It is replaced by the cypher text's value at runtime
+                long_help: Keyword indicating the location of the cypher text in the HTTP request. It is replaced by the cypher text's value at runtime
                 short: K
                 long: keyword
                 default_value: CTEXT
                 takes_value: true
             - consider_body:
                 help: Consider the body during calibration
-                long_help: Consider the response body and content length when determining how the web oracle responds to (in)correct padding
+                long_help: Consider the response body and content length when determining the web oracle's response to (in)correct padding
                 short: c
                 long: consider-body
                 aliases: ["consider_body", "consider-content", "consider_content"]

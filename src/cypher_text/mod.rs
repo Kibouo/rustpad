@@ -18,16 +18,23 @@ pub struct CypherText {
 }
 
 impl CypherText {
-    pub fn parse(input_data: &str, block_size: &BlockSize) -> Result<Self> {
+    pub fn parse(input_data: &str, block_size: &BlockSize, no_iv: bool) -> Result<Self> {
         // url decode if needed
         let url_decoded = urlencoding::decode(input_data).unwrap_or(Cow::Borrowed(input_data));
 
         let (decoded_data, used_encoding) = decode(&url_decoded)?;
         let blocks = split_into_blocks(&decoded_data[..], *block_size)?;
+        let blocks = if no_iv {
+            [Block::new(block_size)]
+                .into_iter()
+                .chain(blocks.into_iter())
+                .collect()
+        } else {
+            blocks
+        };
 
         if blocks.len() == 1 {
-            // TODO: improve error message /w noiv option
-            return Err(anyhow!("Decryption impossible with only 1 block"));
+            return Err(anyhow!("Decryption impossible with only 1 block. Does this cypher text include an IV? If not, indicate that with `--no-iv`"));
         }
 
         Ok(Self {

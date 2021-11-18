@@ -57,7 +57,7 @@ impl<'a> Calibrator<'a> {
                 CalibrationResponse::from_response(response, *oracle.config().consider_body())
             })
             .collect::<Result<Vec<_>>>()
-            .context("Failed to request web server for calibration")?;
+            .context("Failed to contact web oracle for calibration")?;
 
         // false positive, the hashmap's key (`response`) is obviously not mutable
         #[allow(clippy::mutable_key_type)]
@@ -68,6 +68,10 @@ impl<'a> Calibrator<'a> {
                 acc
             },
         );
+
+        if counted_responses.len() < 2 {
+            return Err(anyhow!("Calibration of the web oracle failed. We don't know how a response to (in)correct padding looks, as all responses looked the same. Try adding the `--consider-body` flag"));
+        }
 
         let padding_error_response = counted_responses
             .into_iter()

@@ -14,7 +14,7 @@ use crate::{
 
 use super::{keyword_location, replace_keyword_occurrences, KeywordLocation};
 
-/// Unlike with `ScriptOracle`, we don't know which response from the web server corresponds with "valid", and which corresponds to "incorrect padding". For `WebOracle` to magically work, we need to determine the "incorrect padding" response. This struct manages the requests used for the calibration.
+/// Unlike with `ScriptOracle`, we don't know which response from the web oracle corresponds with "valid", and which corresponds to "incorrect padding". For `WebOracle` to magically work, we need to determine the "incorrect padding" response. This struct manages the requests used for the calibration.
 /// `ask_validation` needs to return the web request's `Response`.Meaning, `Oracle` can't be implemented. Also, implementing it would be confusing as `CalibrateWebOracle`'s purpose is different from normal oracles.
 #[derive(Getters)]
 pub struct CalibrationWebOracle {

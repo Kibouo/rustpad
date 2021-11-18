@@ -3,7 +3,6 @@
 - smarter URL parsing
 - specify/calc amount threads
 - specify encoding
-- noiv option (cypher text doesn't include IV)
 - caching mechanism
     - prevents having to wait again when forgetting/typo-ing a `--encrypt`
     - resume

@@ -6,7 +6,7 @@ use reqwest::{
     StatusCode,
 };
 
-/// Contains the parts of web response which are relevant to deciding whether the web server decided the padding was correct or not.
+/// Contains the parts of web response which are relevant to deciding whether the web oracle decided the padding was correct or not.
 #[derive(Hash, Eq, PartialEq, Debug, Clone, Getters)]
 pub struct CalibrationResponse {
     #[getset(get = "pub")]
