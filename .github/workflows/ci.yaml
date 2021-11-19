@@ -1,4 +1,6 @@
 on:
+  # Allows running manually from Actions tab
+  workflow_dispatch:
   pull_request:
   push:
     branches:
