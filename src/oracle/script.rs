@@ -1,4 +1,7 @@
-use std::{path::PathBuf, process::Command};
+use std::{
+    path::PathBuf,
+    process::{Command, Stdio},
+};
 
 use anyhow::{anyhow, Context, Result};
 
@@ -39,9 +42,11 @@ impl Oracle for ScriptOracle {
 
     fn ask_validation<'a>(&self, cypher_text: &'a impl Encode<'a>) -> Result<bool> {
         let status = Command::new("/bin/sh")
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
             .arg("-c")
             .arg(format!(
-                "{} {}",
+                "{} {} ",
                 self.path.as_path().to_str().ok_or_else(|| anyhow!(
                     "Path ({}) invalid. Double check the path",
                     self.path.display()
