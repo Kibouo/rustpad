@@ -164,4 +164,5 @@ Script must respond with exit code 0 for correct padding, and any other code oth
 - [ ] advanced calibration: response text should contain "x"
 - [ ] automated block size detection
 - [ ] AUR, crates.io, Ubuntu (?) release
+- [ ] improve linux binary's file size
 - [ ] .NET URL token encoding?
