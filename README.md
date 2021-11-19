@@ -7,13 +7,20 @@
     <img alt="uses Rust shield" src="https://img.shields.io/badge/uses-Rust-orange?logo=rust">
 </a>
 <a href="https://github.com/Kibouo/rustpad/blob/main/LICENSE">
-    <img alt="license shield" src="https://img.shields.io/github/license/Kibouo/rustpad?color=blue">
+    <img alt="license shield" src="https://img.shields.io/github/license/Kibouo/rustpad?color=teal">
 </a>
 </p>
 
 <p align="center">
 <img alt="asciinema example run" src="./assets/example_run.gif">
 </p>
+
+## 👇🏃 Download
+|                                                                                                                                                                              |                             |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| <p align="center"><a href="https://aur.archlinux.org/packages/rustpad-bin/"><img alt="aur shield" src="https://img.shields.io:/aur/version/rustpad-bin?color=blue"/></a></p> | `yay -Syu rustpad`          |
+| <p align="center"><a href="https://github.com/Kibouo/rustpad/releases"><img alt="deb shield" src="https://img.shields.io/badge/deb-v1.0.1-purple"/></a></p>                  | `apt install ./rustpad.deb` |
+| <p align="center"><a href="https://crates.io/crates/rustpad"><img alt="crates.io shield" src="https://img.shields.io:/crates/v/rustpad?color=yellow"/></a></p>               | `cargo install rustpad`     |
 
 ## 🔪🏛️ A multi-threaded what now?
 `rustpad` is a multi-threaded successor to the classic [`padbuster`](https://github.com/AonCyberLabs/PadBuster), written in Rust. It abuses a [Padding Oracle vulnerability](https://en.wikipedia.org/wiki/Padding_oracle_attack) to decrypt any cypher text or encrypt arbitrary plain text **without knowing the encryption key**!
@@ -163,6 +170,5 @@ Script must respond with exit code 0 for correct padding, and any other code oth
 - [ ] smarter URL parsing
 - [ ] advanced calibration: response text should contain "x"
 - [ ] automated block size detection
-- [ ] AUR, crates.io, Ubuntu (?) release
 - [ ] improve linux binary's file size
 - [ ] .NET URL token encoding?
