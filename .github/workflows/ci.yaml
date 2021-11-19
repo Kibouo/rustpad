@@ -61,7 +61,7 @@ jobs:
           name: Clippy Output
 
   release:
-    name: Release Packaging
+    name: Release ${{ matrix.target }}
     needs: [check, fmt, clippy]
     env:
       PROJECT_NAME_UNDERSCORE: rustpad
@@ -89,4 +89,4 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: ${{ env.PROJECT_NAME_UNDERSCORE }}
-          path: target/release/${{ env.PROJECT_NAME_UNDERSCORE }}
+          path: target/${{ matrix.target }}/release/${{ env.PROJECT_NAME_UNDERSCORE }}
