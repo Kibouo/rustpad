@@ -1,5 +1,5 @@
 name: rustpad
-version: "0.1.0"
+version: "1.0.0"
 about: Multi-threaded Padding Oracle attacks against any service.
 settings:
     - SubcommandRequired
