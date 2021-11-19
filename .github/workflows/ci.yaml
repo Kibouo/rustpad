@@ -61,7 +61,7 @@ jobs:
           name: Clippy Output
 
   release:
-    name: Release ${{ matrix.target }}
+    name: Release Packaging
     needs: [check, fmt, clippy]
     env:
       PROJECT_NAME_UNDERSCORE: rustpad
@@ -83,9 +83,10 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - name: Compile and release
-        uses: rust-build/rust-build.action@latest
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RUSTTARGET: ${{ matrix.target }}
-          EXTRA_FILES: "README.md LICENSE"
+      - name: Release Build
+        run: cargo build --release --target ${{ matrix.target }}
+      - name: 'Upload Artifact'
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ env.PROJECT_NAME_UNDERSCORE }}
+          path: target/release/${{ env.PROJECT_NAME_UNDERSCORE }}
