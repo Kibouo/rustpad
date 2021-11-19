@@ -14,6 +14,7 @@ use std::time::{Duration, Instant};
 use anyhow::{Context, Result};
 use async_std::task;
 use block::block_size::BlockSizeTrait;
+use calibrator::calibration_response::CalibrationResponse;
 use crossbeam::thread;
 use cypher_text::encode::{AmountBlocksTrait, Encode};
 use divination::decryptor::Decryptor;
@@ -109,13 +110,9 @@ where
     match config.oracle_location() {
         OracleLocation::Web(_) => {
             info!(target: LOG_TARGET, "Using web oracle");
-            let web_calibrator = decryptor.request_calibrator();
-            let calibration_oracle =
-                CalibrationWebOracle::visit(config.oracle_location(), config.sub_config())?;
-            let padding_error_response =
-                web_calibrator.determine_padding_error_response(calibration_oracle)?;
-
             let mut oracle = WebOracle::visit(config.oracle_location(), config.sub_config())?;
+            let padding_error_response =
+                calibrate_web(&decryptor, update_ui_callback.clone(), &config)?;
             oracle.set_padding_error_response(Some(padding_error_response));
 
             logic_main(
@@ -129,7 +126,6 @@ where
         OracleLocation::Script(_) => {
             info!(target: LOG_TARGET, "Using script oracle");
             let oracle = ScriptOracle::visit(config.oracle_location(), config.sub_config())?;
-            decryptor.decrypt_blocks(&oracle)?;
 
             logic_main(
                 &decryptor,
@@ -144,6 +140,26 @@ where
     // keep window open for user to read results
     (update_ui_callback)(UiEvent::Control(UiControlEvent::SlowRedraw));
     Ok(())
+}
+
+fn calibrate_web<U>(
+    decryptor: &Decryptor<U>,
+    mut update_ui_callback: U,
+    config: &Config,
+) -> Result<CalibrationResponse>
+where
+    U: FnMut(UiEvent) + Sync + Send + Clone,
+{
+    // draw UI already so user doesn't think application is dead during calibration
+    (update_ui_callback)(UiEvent::Decryption(UiDecryptionEvent::InitDecryption(
+        config.cypher_text().blocks().to_vec(),
+    )));
+
+    info!(target: LOG_TARGET, "Calibrating web oracle...");
+    let web_calibrator = decryptor.request_calibrator();
+    let calibration_oracle =
+        CalibrationWebOracle::visit(config.oracle_location(), config.sub_config())?;
+    web_calibrator.determine_padding_error_response(calibration_oracle)
 }
 
 fn logic_main<U>(
