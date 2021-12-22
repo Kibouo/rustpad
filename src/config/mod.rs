@@ -1,7 +1,10 @@
-use anyhow::{Context, Result};
+use std::str::FromStr;
+
+use anyhow::{anyhow, Context, Result};
 use clap::{load_yaml, App, ArgMatches};
 use getset::{Getters, MutGetters, Setters};
 use log::LevelFilter;
+use reqwest::Url;
 
 use crate::{
     block::block_size::BlockSize, cypher_text::CypherText, oracle::oracle_location::OracleLocation,
@@ -49,6 +52,10 @@ pub struct WebConfig {
     keyword: String,
     #[getset(get = "pub")]
     user_agent: String,
+    #[getset(get = "pub")]
+    proxy: Option<Url>,
+    #[getset(get = "pub")]
+    proxy_credentials: Option<(String, String)>,
 
     // flags
     #[getset(get = "pub")]
@@ -141,7 +148,7 @@ fn parse_as_web(
                     .split_once(':')
                     .map(|(l, r)| (l.to_owned(), r.to_owned()));
                 split_header.context(format!(
-                    "Header format invalid! Expected 'HeaderName: HeaderValue', got '{}'.",
+                    "Header format invalid! Expected `HeaderName: HeaderValue`, got `{}`.",
                     header
                 ))
             })
@@ -163,6 +170,24 @@ fn parse_as_web(
             .value_of("user_agent")
             .map(|agent| agent.replace(VERSION_TEMPLATE, VERSION))
             .expect("No default value for argument `user_agent`"),
+        proxy: args
+            .value_of("proxy")
+            .map(|proxy| Url::from_str(proxy))
+            .transpose()
+            .context("Proxy URL failed to parse")?,
+        proxy_credentials: args
+            .value_of("proxy_credentials")
+            .map(|credentials| {
+                credentials
+                    .split_once(':')
+                    .map(|(user, pass)| (user.to_owned(), pass.to_owned()))
+                    .ok_or_else(|| {
+                        anyhow!(
+                            "Proxy credentials format invalid! Expected `username:password`, got `{}`."
+                        )
+                    })
+            })
+            .transpose()?,
 
         redirect: args.is_present("redirect"),
         insecure: args.is_present("insecure"),

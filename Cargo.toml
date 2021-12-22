@@ -1,6 +1,6 @@
 [package]
 name = "rustpad"
-version = "1.0.1"
+version = "1.1.0"
 description = "Multi-threaded Padding Oracle attacks against any service."
 authors = ["Csonka Mihaly <csonka.mihaly@hotmail.com>"]
 license = "GPL-3.0"
@@ -9,7 +9,7 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "2.33", default-features = true, features = ["yaml", "wrap_help"] }
-reqwest = { version = "0.11", default-features = true, features = ["blocking"] }
+reqwest = { version = "0.11", default-features = true, features = ["blocking", "socks"] }
 anyhow = "1.0"
 base64 = "0.13"
 hex = "0.4"

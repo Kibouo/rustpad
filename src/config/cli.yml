@@ -1,5 +1,5 @@
 name: rustpad
-version: "1.0.1"
+version: "1.1.0"
 about: Multi-threaded Padding Oracle attacks against any service.
 settings:
     - SubcommandRequired
@@ -121,6 +121,20 @@ subcommands:
                 # `<version>` is replaced in config parsing to show correct version
                 default_value: rustpad/<version>
                 takes_value: true
+            - proxy:
+                help: Proxy server
+                long_help: Proxy server to send web requests over. Supports HTTP(S) and SOCKS5
+                short: x
+                long: proxy
+                aliases: ["proxy_server", "proxy-server", "proxy_url", "proxy-url"]
+                takes_value: true
+            - proxy_credentials:
+                help: Credentials for proxy server
+                long_help: "Credentials to authenticate against the proxy server with [format: <user>:<pass>]"
+                long: proxy-credentials
+                aliases: ["proxy_credentials"]
+                takes_value: true
+                requires: proxy
 
     - script:
         about: Question a script-based oracle
