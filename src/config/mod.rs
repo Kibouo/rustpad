@@ -1,8 +1,8 @@
-use std::str::FromStr;
+use std::{ops::Deref, str::FromStr};
 
 use anyhow::{anyhow, Context, Result};
 use clap::{load_yaml, App, ArgMatches};
-use getset::{Getters, MutGetters, Setters};
+use getset::{Getters, MutGetters};
 use log::LevelFilter;
 use reqwest::Url;
 
@@ -18,6 +18,13 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 // Why: because `Clap::ArgMatches` is underlying a `HashMap`, and accessing requires passing strings and error checking. That's ugly.
 #[derive(Debug, Getters, MutGetters)]
 pub struct Config {
+    main_config: MainConfig,
+    #[getset(get = "pub", get_mut = "pub")]
+    sub_config: SubConfig,
+}
+
+#[derive(Debug, Getters)]
+pub struct MainConfig {
     #[getset(get = "pub")]
     oracle_location: OracleLocation,
     #[getset(get = "pub")]
@@ -32,9 +39,6 @@ pub struct Config {
     log_level: LevelFilter,
     #[getset(get = "pub")]
     thread_count: Option<usize>,
-    // sub-commands options
-    #[getset(get = "pub", get_mut = "pub")]
-    sub_config: SubConfig,
 }
 
 #[derive(Debug)]
@@ -43,7 +47,7 @@ pub enum SubConfig {
     Script(ScriptConfig),
 }
 
-#[derive(Debug, Clone, Getters, Setters)]
+#[derive(Debug, Clone, Getters)]
 pub struct WebConfig {
     // arguments
     #[getset(get = "pub")]
@@ -72,7 +76,7 @@ pub struct WebConfig {
     consider_body: bool,
 }
 
-#[derive(Debug, Clone, Getters, Setters)]
+#[derive(Debug, Clone, Getters)]
 pub struct ScriptConfig {
     #[getset(get = "pub")]
     thread_delay: u64,
@@ -82,7 +86,23 @@ impl Config {
     pub fn parse() -> Result<Self> {
         let yaml = load_yaml!("cli.yml");
         let args = App::from(yaml).get_matches();
+        let sub_command = args
+            .subcommand_name()
+            .expect("No required sub-command found");
 
+        let main_config = MainConfig::parse(&args, sub_command)?;
+        let sub_config =
+            SubConfig::parse(args.subcommand_matches(sub_command).unwrap(), sub_command)?;
+
+        Ok(Config {
+            main_config,
+            sub_config,
+        })
+    }
+}
+
+impl MainConfig {
+    fn parse(args: &ArgMatches, config_type: &str) -> Result<Self> {
         let oracle_location = args
             .value_of("oracle")
             .expect("No required argument `oracle` found");
@@ -111,165 +131,117 @@ impl Config {
                 }
             })
             .transpose()?;
+
+        Ok(Self {
+            oracle_location: OracleLocation::new(oracle_location, config_type)?,
+            cypher_text: CypherText::parse(cypher_text, &block_size, no_iv)?,
+            plain_text: plain_text.map(|plain_text| PlainText::new(plain_text, &block_size)),
+            block_size,
+            log_level,
+            no_iv,
+            thread_count,
+        })
+    }
+}
+
+impl SubConfig {
+    fn parse(args: &ArgMatches, sub_command: &str) -> Result<Self> {
         let thread_delay = args
             .value_of("delay")
             .map(|delay| delay.parse().context("Thread delay failed to parse"))
             .transpose()?
             .expect("No default value for argument `delay`");
 
-        let sub_command = args
-            .subcommand_name()
-            .expect("No required sub-command found");
-        match sub_command {
-            "web" => {
-                let sub_command_args = args.subcommand_matches(sub_command).unwrap();
-                parse_as_web(
-                    oracle_location,
-                    cypher_text,
-                    plain_text,
-                    block_size,
-                    log_level,
-                    no_iv,
-                    thread_count,
-                    thread_delay,
-                    sub_command,
-                    sub_command_args,
-                )
-            }
-            "script" => {
-                let sub_command_args = args.subcommand_matches(sub_command).unwrap();
-                parse_as_script(
-                    oracle_location,
-                    cypher_text,
-                    plain_text,
-                    block_size,
-                    log_level,
-                    no_iv,
-                    thread_count,
-                    thread_delay,
-                    sub_command,
-                    sub_command_args,
-                )
-            }
+        let sub_config = match sub_command {
+            "web" => SubConfig::Web(WebConfig::parse(args, thread_delay)?),
+            "script" => SubConfig::Script(ScriptConfig::parse(args, thread_delay)?),
             _ => unreachable!(format!("Invalid sub-command: {}", sub_command)),
-        }
+        };
+
+        Ok(sub_config)
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-fn parse_as_web(
-    oracle_location: &str,
-    cypher_text: &str,
-    plain_text: Option<&str>,
-    block_size: BlockSize,
-    log_level: LevelFilter,
-    no_iv: bool,
-    thread_count: Option<usize>,
-    thread_delay: u64,
-    sub_command: &str,
-    args: &ArgMatches,
-) -> Result<Config> {
-    fn split_headers<'a>(
-        headers: impl IntoIterator<Item = &'a str>,
-    ) -> Result<Vec<(String, String)>> {
-        headers
-            .into_iter()
-            .map(|header| -> Result<(String, String)> {
-                let split_header = header
-                    .split_once(':')
-                    .map(|(l, r)| (l.trim().to_owned(), r.trim().to_owned()));
-                split_header.context(format!(
-                    "Header format invalid! Expected `HeaderName: HeaderValue`, got `{}`.",
-                    header
-                ))
-            })
-            .collect::<Result<Vec<_>>>()
+impl WebConfig {
+    fn parse(args: &ArgMatches, thread_delay: u64) -> Result<Self> {
+        let keyword = args
+            .value_of("keyword")
+            .expect("No default value for argument `keyword`");
+
+        Ok(Self {
+            post_data: args.value_of("data").map(|data| data.to_owned()),
+            headers: match args.values_of("header") {
+                Some(headers) => split_headers(headers)?,
+                None => vec![],
+            },
+            keyword: keyword.into(),
+            user_agent: args
+                .value_of("user_agent")
+                .map(|agent| agent.replace(VERSION_TEMPLATE, VERSION))
+                .expect("No default value for argument `user_agent`"),
+            proxy: args
+                .value_of("proxy")
+                .map(|proxy| Url::from_str(proxy))
+                .transpose()
+                .context("Proxy URL failed to parse")?,
+            proxy_credentials: args
+                .value_of("proxy_credentials")
+                .map(|credentials| {
+                    let split_credentials = credentials
+                        .split_once(':')
+                        .map(|(user, pass)| (user.to_owned(), pass.to_owned()));
+                    split_credentials.context(format!(
+                        "Proxy credentials format invalid! Expected `username:password`, got `{}`.",
+                        credentials
+                    ))
+                })
+                .transpose()?,
+            request_timeout: args
+                .value_of("timeout")
+                .map(|timeout| {
+                    let timeout = timeout.parse().context("Request timeout failed to parse")?;
+                    if timeout > 0 {
+                        Ok(timeout)
+                    } else {
+                        Err(anyhow!("Request timeout must be greater than 0"))
+                    }
+                })
+                .transpose()?
+                .expect("No default value for argument `timeout`"),
+            thread_delay,
+
+            redirect: args.is_present("redirect"),
+            insecure: args.is_present("insecure"),
+            consider_body: args.is_present("consider_body"),
+        })
     }
-
-    let keyword = args
-        .value_of("keyword")
-        .expect("No default value for argument `keyword`");
-
-    let web_config = WebConfig {
-        post_data: args.value_of("data").map(|data| data.to_owned()),
-        headers: match args.values_of("header") {
-            Some(headers) => split_headers(headers)?,
-            None => vec![],
-        },
-        keyword: keyword.into(),
-        user_agent: args
-            .value_of("user_agent")
-            .map(|agent| agent.replace(VERSION_TEMPLATE, VERSION))
-            .expect("No default value for argument `user_agent`"),
-        proxy: args
-            .value_of("proxy")
-            .map(|proxy| Url::from_str(proxy))
-            .transpose()
-            .context("Proxy URL failed to parse")?,
-        proxy_credentials: args
-            .value_of("proxy_credentials")
-            .map(|credentials| {
-                credentials
-                    .split_once(':')
-                    .map(|(user, pass)| (user.to_owned(), pass.to_owned()))
-                    .ok_or_else(|| {
-                        anyhow!(
-                            "Proxy credentials format invalid! Expected `username:password`, got `{}`."
-                        )
-                    })
-            })
-            .transpose()?,
-        request_timeout: args
-            .value_of("timeout")
-            .map(|timeout| {
-                let timeout = timeout.parse().context("Request timeout failed to parse")?;
-                if timeout > 0 {
-                    Ok(timeout)
-                } else {
-                    Err(anyhow!("Request timeout must be greater than 0"))
-                }
-            }).transpose()?
-            .expect("No default value for argument `timeout`"),
-        thread_delay,
-
-        redirect: args.is_present("redirect"),
-        insecure: args.is_present("insecure"),
-        consider_body: args.is_present("consider_body"),
-    };
-
-    Ok(Config {
-        oracle_location: OracleLocation::new(oracle_location, sub_command)?,
-        cypher_text: CypherText::parse(cypher_text, &block_size, no_iv)?,
-        plain_text: plain_text.map(|plain_text| PlainText::new(plain_text, &block_size)),
-        block_size,
-        log_level,
-        no_iv,
-        thread_count,
-        sub_config: SubConfig::Web(web_config),
-    })
 }
 
-#[allow(clippy::too_many_arguments)]
-fn parse_as_script(
-    oracle_location: &str,
-    cypher_text: &str,
-    plain_text: Option<&str>,
-    block_size: BlockSize,
-    log_level: LevelFilter,
-    no_iv: bool,
-    thread_count: Option<usize>,
-    thread_delay: u64,
-    sub_command: &str,
-    _args: &ArgMatches,
-) -> Result<Config> {
-    Ok(Config {
-        oracle_location: OracleLocation::new(oracle_location, sub_command)?,
-        cypher_text: CypherText::parse(cypher_text, &block_size, no_iv)?,
-        plain_text: plain_text.map(|plain_text| PlainText::new(plain_text, &block_size)),
-        block_size,
-        log_level,
-        no_iv,
-        thread_count,
-        sub_config: SubConfig::Script(ScriptConfig { thread_delay }),
-    })
+impl ScriptConfig {
+    fn parse(_args: &ArgMatches, thread_delay: u64) -> Result<Self> {
+        Ok(Self { thread_delay })
+    }
+}
+
+fn split_headers<'a>(headers: impl IntoIterator<Item = &'a str>) -> Result<Vec<(String, String)>> {
+    headers
+        .into_iter()
+        .map(|header| -> Result<(String, String)> {
+            let split_header = header
+                .split_once(':')
+                .map(|(l, r)| (l.trim().to_owned(), r.trim().to_owned()));
+            split_header.context(format!(
+                "Header format invalid! Expected `HeaderName: HeaderValue`, got `{}`.",
+                header
+            ))
+        })
+        .collect::<Result<Vec<_>>>()
+}
+
+impl Deref for Config {
+    type Target = MainConfig;
+
+    fn deref(&self) -> &Self::Target {
+        &self.main_config
+    }
 }
