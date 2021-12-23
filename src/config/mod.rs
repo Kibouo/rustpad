@@ -60,6 +60,8 @@ pub struct WebConfig {
     proxy_credentials: Option<(String, String)>,
     #[getset(get = "pub")]
     request_timeout: u64,
+    #[getset(get = "pub")]
+    thread_delay: u64,
 
     // flags
     #[getset(get = "pub")]
@@ -70,8 +72,11 @@ pub struct WebConfig {
     consider_body: bool,
 }
 
-#[derive(Debug, Clone)]
-pub struct ScriptConfig {}
+#[derive(Debug, Clone, Getters, Setters)]
+pub struct ScriptConfig {
+    #[getset(get = "pub")]
+    thread_delay: u64,
+}
 
 impl Config {
     pub fn parse() -> Result<Self> {
@@ -106,6 +111,11 @@ impl Config {
                 }
             })
             .transpose()?;
+        let thread_delay = args
+            .value_of("delay")
+            .map(|delay| delay.parse().context("Thread delay failed to parse"))
+            .transpose()?
+            .expect("No default value for argument `delay`");
 
         let sub_command = args
             .subcommand_name()
@@ -121,6 +131,7 @@ impl Config {
                     log_level,
                     no_iv,
                     thread_count,
+                    thread_delay,
                     sub_command,
                     sub_command_args,
                 )
@@ -135,6 +146,7 @@ impl Config {
                     log_level,
                     no_iv,
                     thread_count,
+                    thread_delay,
                     sub_command,
                     sub_command_args,
                 )
@@ -153,6 +165,7 @@ fn parse_as_web(
     log_level: LevelFilter,
     no_iv: bool,
     thread_count: Option<usize>,
+    thread_delay: u64,
     sub_command: &str,
     args: &ArgMatches,
 ) -> Result<Config> {
@@ -209,14 +222,15 @@ fn parse_as_web(
         request_timeout: args
             .value_of("timeout")
             .map(|timeout| {
-                let timeout = timeout.parse().context("Timeout failed to parse")?;
+                let timeout = timeout.parse().context("Request timeout failed to parse")?;
                 if timeout > 0 {
                     Ok(timeout)
                 } else {
-                    Err(anyhow!("Timeout must be greater than 0"))
+                    Err(anyhow!("Request timeout must be greater than 0"))
                 }
             }).transpose()?
             .expect("No default value for argument `timeout`"),
+        thread_delay,
 
         redirect: args.is_present("redirect"),
         insecure: args.is_present("insecure"),
@@ -244,6 +258,7 @@ fn parse_as_script(
     log_level: LevelFilter,
     no_iv: bool,
     thread_count: Option<usize>,
+    thread_delay: u64,
     sub_command: &str,
     _args: &ArgMatches,
 ) -> Result<Config> {
@@ -255,6 +270,6 @@ fn parse_as_script(
         log_level,
         no_iv,
         thread_count,
-        sub_config: SubConfig::Script(ScriptConfig {}),
+        sub_config: SubConfig::Script(ScriptConfig { thread_delay }),
     })
 }

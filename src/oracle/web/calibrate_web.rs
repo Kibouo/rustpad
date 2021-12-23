@@ -60,4 +60,8 @@ impl CalibrationWebOracle {
 
         request.send().context("Sending request failed")
     }
+
+    pub fn thread_delay(&self) -> u64 {
+        *self.config.thread_delay()
+    }
 }

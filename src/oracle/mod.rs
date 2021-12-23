@@ -18,4 +18,5 @@ pub trait Oracle: Sync {
     fn ask_validation<'a>(&self, cypher_text: &'a impl Encode<'a>) -> Result<bool>;
 
     fn location(&self) -> OracleLocation;
+    fn thread_delay(&self) -> u64;
 }

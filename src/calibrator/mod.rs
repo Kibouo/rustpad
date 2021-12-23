@@ -2,7 +2,7 @@ pub mod calibration_response;
 
 use calibration_response::CalibrationResponse;
 
-use std::collections::HashMap;
+use std::{collections::HashMap, thread, time::Duration};
 
 use anyhow::{anyhow, Context, Result};
 use log::{debug, info, warn};
@@ -118,6 +118,8 @@ fn calibrate_while_handling_retries(
             byte_value
         ));
     }
+
+    thread::sleep(Duration::from_millis(oracle.thread_delay()));
 
     match oracle.ask_validation(forged_cypher_text) {
         Ok(correct_padding) => OperationResult::Ok(correct_padding),

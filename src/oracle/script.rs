@@ -14,7 +14,7 @@ use super::{oracle_location::OracleLocation, Oracle};
 
 pub struct ScriptOracle {
     path: PathBuf,
-    _config: ScriptConfig,
+    config: ScriptConfig,
 }
 
 impl Oracle for ScriptOracle {
@@ -35,7 +35,7 @@ impl Oracle for ScriptOracle {
 
         let oracle = Self {
             path: path.to_path_buf(),
-            _config: oracle_config.clone(),
+            config: oracle_config.clone(),
         };
         Ok(oracle)
     }
@@ -61,5 +61,8 @@ impl Oracle for ScriptOracle {
 
     fn location(&self) -> OracleLocation {
         OracleLocation::Script(self.path.clone())
+    }
+    fn thread_delay(&self) -> u64 {
+        *self.config.thread_delay()
     }
 }

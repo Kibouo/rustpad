@@ -1,3 +1,5 @@
+use std::{thread, time::Duration};
+
 use anyhow::{anyhow, Result};
 use log::{debug, warn};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
@@ -100,7 +102,7 @@ where
                     ByteLockResult::Solved(solution) => block_solution = Some(solution),
                 }
             }
-            // // validation for byte failed, attempt retry
+            // validation for byte failed, attempt retry
             Err(e) => {
                 if attempts_to_solve_byte > RETRY_MAX_ATTEMPTS {
                     return Err(e);
@@ -140,6 +142,9 @@ fn validate_while_handling_retries(
             byte_value
         ));
     }
+
+    thread::sleep(Duration::from_millis(oracle.thread_delay()));
+
     match oracle.ask_validation(forged_cypher_text) {
         Ok(correct_padding) => OperationResult::Ok(correct_padding),
         Err(e) => {

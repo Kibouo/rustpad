@@ -75,6 +75,9 @@ impl Oracle for WebOracle {
     fn location(&self) -> OracleLocation {
         OracleLocation::Web(self.url.clone())
     }
+    fn thread_delay(&self) -> u64 {
+        *self.config.thread_delay()
+    }
 }
 
 #[derive(Debug)]
