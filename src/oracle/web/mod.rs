@@ -31,46 +31,12 @@ pub struct WebOracle {
 
 impl Oracle for WebOracle {
     fn visit(oracle_location: &OracleLocation, oracle_config: &SubConfig) -> Result<Self> {
-        let url = match oracle_location {
-            OracleLocation::Web(url) => url,
-            OracleLocation::Script(_) => {
-                panic!("Tried to visit the web oracle using a file path!");
-            }
-        };
-
-        let oracle_config = match oracle_config {
-            SubConfig::Web(config) => config,
-            SubConfig::Script(_) => {
-                panic!("Tried to visit the web oracle using script configs!");
-            }
-        };
-
-        let keyword_locations = keyword_location(url, oracle_config);
-        if keyword_locations.is_empty() {
-            return Err(anyhow!(
-                "Keyword not found in URL, headers, or POST data. Double check whether you indicated the cypher text's location. See `--keyword` for extra info"
-            ));
-        }
-
-        let mut client_builder = ClientBuilder::new()
-            .danger_accept_invalid_certs(*oracle_config.insecure())
-            .user_agent(oracle_config.user_agent());
-        if !oracle_config.redirect() {
-            client_builder = client_builder.redirect(Policy::none());
-        }
-        if let Some(proxy_url) = oracle_config.proxy() {
-            let mut proxy = Proxy::all(proxy_url.clone())?;
-            if let Some((username, password)) = oracle_config.proxy_credentials() {
-                proxy = proxy.basic_auth(username, password);
-            }
-            client_builder = client_builder.proxy(proxy);
-        }
-
-        let web_client = client_builder.build().context("Web client setup failed")?;
+        let (url, web_client, keyword_locations, web_config) =
+            build_web_oracle(oracle_location, oracle_config)?;
 
         let oracle = Self {
-            url: url.to_owned(),
-            config: oracle_config.clone(),
+            url,
+            config: web_config.clone(),
             web_client,
             keyword_locations,
             padding_error_response: None,
@@ -256,4 +222,48 @@ fn keyword_location(url: &Url, config: &WebConfig) -> Vec<KeywordLocation> {
     }
 
     keyword_locations
+}
+
+fn build_web_oracle<'a>(
+    oracle_location: &OracleLocation,
+    oracle_config: &'a SubConfig,
+) -> Result<(Url, Client, Vec<KeywordLocation>, &'a WebConfig)> {
+    let url = match oracle_location {
+        OracleLocation::Web(url) => url,
+        OracleLocation::Script(_) => {
+            panic!("Tried to visit the web oracle using a file path!");
+        }
+    };
+
+    let oracle_config = match oracle_config {
+        SubConfig::Web(config) => config,
+        SubConfig::Script(_) => {
+            panic!("Tried to visit the web oracle using script configs!");
+        }
+    };
+
+    let keyword_locations = keyword_location(url, oracle_config);
+    if keyword_locations.is_empty() {
+        return Err(anyhow!(
+            "Keyword not found in URL, headers, or POST data. Double check whether you indicated the cypher text's location. See `--keyword` for extra info"
+        ));
+    }
+
+    let mut client_builder = ClientBuilder::new()
+        .danger_accept_invalid_certs(*oracle_config.insecure())
+        .user_agent(oracle_config.user_agent());
+    if !oracle_config.redirect() {
+        client_builder = client_builder.redirect(Policy::none());
+    }
+    if let Some(proxy_url) = oracle_config.proxy() {
+        let mut proxy = Proxy::all(proxy_url.clone())?;
+        if let Some((username, password)) = oracle_config.proxy_credentials() {
+            proxy = proxy.basic_auth(username, password);
+        }
+        client_builder = client_builder.proxy(proxy);
+    }
+
+    let web_client = client_builder.build().context("Web client setup failed")?;
+
+    Ok((url.to_owned(), web_client, keyword_locations, oracle_config))
 }

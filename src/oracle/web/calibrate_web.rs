@@ -1,8 +1,7 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use getset::Getters;
 use reqwest::{
-    blocking::{Client, ClientBuilder, Response},
-    redirect::Policy,
+    blocking::{Client, Response},
     Url,
 };
 
@@ -12,7 +11,7 @@ use crate::{
     oracle::oracle_location::OracleLocation,
 };
 
-use super::{keyword_location, replace_keyword_occurrences, KeywordLocation};
+use super::{build_web_oracle, replace_keyword_occurrences, KeywordLocation};
 
 /// Unlike with `ScriptOracle`, we don't know which response from the web oracle corresponds with "valid", and which corresponds to "incorrect padding". For `WebOracle` to magically work, we need to determine the "incorrect padding" response. This struct manages the requests used for the calibration.
 /// `ask_validation` needs to return the web request's `Response`.Meaning, `Oracle` can't be implemented. Also, implementing it would be confusing as `CalibrateWebOracle`'s purpose is different from normal oracles.
@@ -27,39 +26,12 @@ pub struct CalibrationWebOracle {
 
 impl CalibrationWebOracle {
     pub fn visit(oracle_location: &OracleLocation, oracle_config: &SubConfig) -> Result<Self> {
-        let url = match oracle_location {
-            OracleLocation::Web(url) => url,
-            OracleLocation::Script(_) => {
-                panic!("Tried to visit the web oracle using a file path!");
-            }
-        };
-
-        let oracle_config = match oracle_config {
-            SubConfig::Web(config) => config,
-            SubConfig::Script(_) => {
-                panic!("Tried to visit the web oracle using script configs!");
-            }
-        };
-
-        let keyword_locations = keyword_location(url, oracle_config);
-        if keyword_locations.is_empty() {
-            return Err(anyhow!(
-                "Keyword not found in URL, headers, or POST data. Double check whether you indicated the cypher text's location. See `--keyword` for extra info"
-            ));
-        }
-
-        let mut client_builder = ClientBuilder::new()
-            .danger_accept_invalid_certs(*oracle_config.insecure())
-            .user_agent(oracle_config.user_agent());
-        if !oracle_config.redirect() {
-            client_builder = client_builder.redirect(Policy::none());
-        }
-
-        let web_client = client_builder.build().context("Web client setup failed")?;
+        let (url, web_client, keyword_locations, web_config) =
+            build_web_oracle(oracle_location, oracle_config)?;
 
         let oracle = Self {
-            url: url.to_owned(),
-            config: oracle_config.clone(),
+            url,
+            config: web_config.clone(),
             web_client,
             keyword_locations,
         };
