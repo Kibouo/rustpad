@@ -21,6 +21,7 @@ use divination::decryptor::Decryptor;
 use humantime::format_duration;
 use log::{error, info};
 use logging::init_logging;
+use other::config_thread_pool;
 
 use crate::{
     config::Config,
@@ -40,6 +41,8 @@ use crate::{
 
 fn main() -> Result<()> {
     let config = Config::parse()?;
+
+    config_thread_pool(*config.thread_count())?;
 
     let tui = Tui::new(config.block_size()).context("TUI creation failed")?;
     init_logging(*config.log_level())?;

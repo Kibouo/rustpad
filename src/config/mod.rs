@@ -30,6 +30,8 @@ pub struct Config {
     no_iv: bool,
     #[getset(get = "pub")]
     log_level: LevelFilter,
+    #[getset(get = "pub")]
+    thread_count: Option<usize>,
     // sub-commands options
     #[getset(get = "pub", get_mut = "pub")]
     sub_config: SubConfig,
@@ -91,6 +93,17 @@ impl Config {
             .value_of("decrypt")
             .expect("No required argument `decrypt` found");
         let plain_text = args.value_of("encrypt");
+        let thread_count = args
+            .value_of("threads")
+            .map(|threads| {
+                let threads = threads.parse().context("Thread count failed to parse")?;
+                if threads > 0 {
+                    Ok(threads)
+                } else {
+                    Err(anyhow!("Thread count must be greater than 0"))
+                }
+            })
+            .transpose()?;
 
         let sub_command = args
             .subcommand_name()
@@ -105,6 +118,7 @@ impl Config {
                     block_size,
                     log_level,
                     no_iv,
+                    thread_count,
                     sub_command,
                     sub_command_args,
                 )
@@ -118,6 +132,7 @@ impl Config {
                     block_size,
                     log_level,
                     no_iv,
+                    thread_count,
                     sub_command,
                     sub_command_args,
                 )
@@ -135,6 +150,7 @@ fn parse_as_web(
     block_size: BlockSize,
     log_level: LevelFilter,
     no_iv: bool,
+    thread_count: Option<usize>,
     sub_command: &str,
     args: &ArgMatches,
 ) -> Result<Config> {
@@ -201,6 +217,7 @@ fn parse_as_web(
         block_size,
         log_level,
         no_iv,
+        thread_count,
         sub_config: SubConfig::Web(web_config),
     })
 }
@@ -213,6 +230,7 @@ fn parse_as_script(
     block_size: BlockSize,
     log_level: LevelFilter,
     no_iv: bool,
+    thread_count: Option<usize>,
     sub_command: &str,
     _args: &ArgMatches,
 ) -> Result<Config> {
@@ -223,6 +241,7 @@ fn parse_as_script(
         block_size,
         log_level,
         no_iv,
+        thread_count,
         sub_config: SubConfig::Script(ScriptConfig {}),
     })
 }
