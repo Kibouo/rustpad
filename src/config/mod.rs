@@ -58,6 +58,8 @@ pub struct WebConfig {
     proxy: Option<Url>,
     #[getset(get = "pub")]
     proxy_credentials: Option<(String, String)>,
+    #[getset(get = "pub")]
+    request_timeout: u64,
 
     // flags
     #[getset(get = "pub")]
@@ -204,6 +206,17 @@ fn parse_as_web(
                     })
             })
             .transpose()?,
+        request_timeout: args
+            .value_of("timeout")
+            .map(|timeout| {
+                let timeout = timeout.parse().context("Timeout failed to parse")?;
+                if timeout > 0 {
+                    Ok(timeout)
+                } else {
+                    Err(anyhow!("Timeout must be greater than 0"))
+                }
+            }).transpose()?
+            .expect("No default value for argument `timeout`"),
 
         redirect: args.is_present("redirect"),
         insecure: args.is_present("insecure"),

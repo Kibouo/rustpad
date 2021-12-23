@@ -1,6 +1,6 @@
 pub mod calibrate_web;
 
-use std::{collections::HashMap, str::FromStr};
+use std::{collections::HashMap, str::FromStr, time::Duration};
 
 use anyhow::{anyhow, Context, Result};
 use getset::Setters;
@@ -250,6 +250,7 @@ fn build_web_oracle<'a>(
     }
 
     let mut client_builder = ClientBuilder::new()
+        .timeout(Duration::from_secs(*oracle_config.request_timeout()))
         .danger_accept_invalid_certs(*oracle_config.insecure())
         .user_agent(oracle_config.user_agent());
     if !oracle_config.redirect() {
