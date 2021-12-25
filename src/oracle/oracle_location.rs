@@ -17,7 +17,7 @@ impl OracleLocation {
             )?)),
             "script" => {
                 let path = PathBuf::from(oracle_location);
-                return if !path.is_file() {
+                if !path.is_file() {
                     Err(anyhow!(
                         "Path ({}) does not point to a file. Double check the path",
                         oracle_location
@@ -29,7 +29,7 @@ impl OracleLocation {
                     ))
                 } else {
                     Ok(Self::Script(path))
-                };
+                }
             }
             _ => unreachable!(format!("Sub-command invalid: {}", oracle_type)),
         }

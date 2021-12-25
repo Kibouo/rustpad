@@ -1,4 +1,4 @@
-use std::{ops::Deref, str::FromStr};
+use std::{ops::Deref, path::PathBuf, str::FromStr};
 
 use anyhow::{anyhow, Context, Result};
 use clap::{load_yaml, App, ArgMatches};
@@ -39,6 +39,8 @@ pub struct MainConfig {
     log_level: LevelFilter,
     #[getset(get = "pub")]
     thread_count: Option<usize>,
+    #[getset(get = "pub")]
+    output_file: Option<PathBuf>,
 }
 
 #[derive(Debug)]
@@ -131,6 +133,20 @@ impl MainConfig {
                 }
             })
             .transpose()?;
+        let output_file = args
+            .value_of("output")
+            .map(|file_path| {
+                let path = PathBuf::from(file_path);
+                if path.exists() {
+                    Err(anyhow!(
+                        "Log file ({:?}) already exists. Refusing to overwrite/append",
+                        path
+                    ))
+                } else {
+                    Ok(path)
+                }
+            })
+            .transpose()?;
 
         Ok(Self {
             oracle_location: OracleLocation::new(oracle_location, config_type)?,
@@ -140,6 +156,7 @@ impl MainConfig {
             log_level,
             no_iv,
             thread_count,
+            output_file,
         })
     }
 }

@@ -43,9 +43,9 @@ fn main() -> Result<()> {
     let config = Config::parse()?;
 
     config_thread_pool(*config.thread_count())?;
+    init_logging(*config.log_level(), config.output_file().as_deref())?;
 
     let tui = Tui::new(config.block_size()).context("TUI creation failed")?;
-    init_logging(*config.log_level())?;
 
     let update_ui_callback = |event| tui.handle_application_event(event);
     thread::scope(|scope| {
