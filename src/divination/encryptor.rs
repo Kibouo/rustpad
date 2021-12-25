@@ -30,7 +30,7 @@ where
     U: FnMut(UiEvent) + Sync + Send + Clone,
 {
     pub fn new(update_ui_callback: U, initial_block: SolvedForgedCypherText<'a>) -> Self {
-        debug!(target: LOG_TARGET, "Preparing to encrypt plain text",);
+        debug!(target: LOG_TARGET, "Preparing to encrypt plain text");
 
         Self {
             initial_block,

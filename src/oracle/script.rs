@@ -48,7 +48,7 @@ impl Oracle for ScriptOracle {
             .arg(format!(
                 "{} {}",
                 self.path.as_path().to_str().ok_or_else(|| anyhow!(
-                    "Path ({}) invalid. Double check the path",
+                    "Path `{}` invalid. Double check the path",
                     self.path.display()
                 ))?,
                 cypher_text.encode()

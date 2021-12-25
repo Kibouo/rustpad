@@ -39,8 +39,8 @@ impl<'a> Calibrator<'a> {
                 forged_cypher_text.set_current_byte(byte_value);
                 debug!(
                     target: LOG_TARGET,
-                    "Calibration block: trying layout {:?}",
-                    forged_cypher_text.forged_block_wip()
+                    "Calibration block attempt: {}",
+                    forged_cypher_text.forged_block_wip().to_hex()
                 );
 
                 let response =
@@ -67,6 +67,10 @@ impl<'a> Calibrator<'a> {
                 *acc.entry(response).or_default() += 1;
                 acc
             },
+        );
+        debug!(
+            target: LOG_TARGET,
+            "Calibration results: {:#?}", counted_responses
         );
 
         if counted_responses.len() < 2 {

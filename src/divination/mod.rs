@@ -72,10 +72,10 @@ where
                     Ok(forged_cypher_text.lock_byte())
                 } else {
                     Err(anyhow!(
-                        "Block {}, byte {}: padding invalid. Forged block was: {:?}",
+                        "Block {}, byte {}: padding invalid. Forged block was: {}",
                         block_to_decrypt_idx + 1,
                         *forged_cypher_text.block_size() - forged_cypher_text.bytes_answered(),
-                        forged_cypher_text.forged_block_wip()
+                        forged_cypher_text.forged_block_wip().to_hex()
                     ))
                 }
             })

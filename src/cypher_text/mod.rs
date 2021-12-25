@@ -124,7 +124,7 @@ fn decode(input_data: &str) -> Result<(Vec<u8>, Encoding)> {
 
     // TODO: improve error message with `encoding` flag option
     Err(anyhow!(
-        "{} is not valid base64, base64 (web-safe), or hex",
+        "{} is not valid base64, base64 (URL safe), or hex",
         input_data
     ))
 }

@@ -139,8 +139,8 @@ impl MainConfig {
                 let path = PathBuf::from(file_path);
                 if path.exists() {
                     Err(anyhow!(
-                        "Log file ({:?}) already exists. Refusing to overwrite/append",
-                        path
+                        "Log file `{}` already exists. Refusing to overwrite/append",
+                        path.display()
                     ))
                 } else {
                     Ok(path)
