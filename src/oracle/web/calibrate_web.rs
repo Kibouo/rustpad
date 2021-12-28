@@ -6,7 +6,7 @@ use reqwest::{
 };
 
 use crate::{
-    config::{SubConfig, WebConfig},
+    config::{web_config::WebConfig, SubConfig},
     cypher_text::encode::Encode,
     oracle::oracle_location::OracleLocation,
 };

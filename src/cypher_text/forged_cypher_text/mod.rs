@@ -119,7 +119,7 @@ impl<'a> Encode<'a> for ForgedCypherText<'a> {
 
         let encoded_data = match self.used_encoding() {
             Encoding::Base64 => base64::encode_config(raw_bytes, base64::STANDARD),
-            Encoding::Base64Web => base64::encode_config(raw_bytes, base64::URL_SAFE),
+            Encoding::Base64Url => base64::encode_config(raw_bytes, base64::URL_SAFE),
             Encoding::Hex => hex::encode(raw_bytes),
         };
 

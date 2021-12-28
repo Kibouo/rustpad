@@ -1,18 +1,14 @@
-use std::{ops::Deref, path::PathBuf, str::FromStr};
+pub mod main_config;
+pub mod script_config;
+pub mod web_config;
 
-use anyhow::{anyhow, Context, Result};
+use std::ops::Deref;
+
+use anyhow::{Context, Result};
 use clap::{load_yaml, App, ArgMatches};
 use getset::{Getters, MutGetters};
-use log::LevelFilter;
-use reqwest::Url;
 
-use crate::{
-    block::block_size::BlockSize, cypher_text::CypherText, oracle::oracle_location::OracleLocation,
-    plain_text::PlainText,
-};
-
-const VERSION_TEMPLATE: &str = "<version>";
-const VERSION: &str = env!("CARGO_PKG_VERSION");
+use self::{main_config::MainConfig, script_config::ScriptConfig, web_config::WebConfig};
 
 /// Native struct for CLI args.
 // Why: because `Clap::ArgMatches` is underlying a `HashMap`, and accessing requires passing strings and error checking. That's ugly.
@@ -23,65 +19,10 @@ pub struct Config {
     sub_config: SubConfig,
 }
 
-#[derive(Debug, Getters)]
-pub struct MainConfig {
-    #[getset(get = "pub")]
-    oracle_location: OracleLocation,
-    #[getset(get = "pub")]
-    cypher_text: CypherText,
-    #[getset(get = "pub")]
-    plain_text: Option<PlainText>,
-    #[getset(get = "pub")]
-    block_size: BlockSize,
-    #[getset(get = "pub")]
-    no_iv: bool,
-    #[getset(get = "pub")]
-    log_level: LevelFilter,
-    #[getset(get = "pub")]
-    thread_count: Option<usize>,
-    #[getset(get = "pub")]
-    output_file: Option<PathBuf>,
-}
-
 #[derive(Debug)]
 pub enum SubConfig {
     Web(WebConfig),
     Script(ScriptConfig),
-}
-
-#[derive(Debug, Clone, Getters)]
-pub struct WebConfig {
-    // arguments
-    #[getset(get = "pub")]
-    post_data: Option<String>,
-    #[getset(get = "pub")]
-    headers: Vec<(String, String)>,
-    #[getset(get = "pub")]
-    keyword: String,
-    #[getset(get = "pub")]
-    user_agent: String,
-    #[getset(get = "pub")]
-    proxy: Option<Url>,
-    #[getset(get = "pub")]
-    proxy_credentials: Option<(String, String)>,
-    #[getset(get = "pub")]
-    request_timeout: u64,
-    #[getset(get = "pub")]
-    thread_delay: u64,
-
-    // flags
-    #[getset(get = "pub")]
-    redirect: bool,
-    #[getset(get = "pub")]
-    insecure: bool,
-    #[getset(get = "pub")]
-    consider_body: bool,
-}
-
-#[derive(Debug, Clone, Getters)]
-pub struct ScriptConfig {
-    #[getset(get = "pub")]
-    thread_delay: u64,
 }
 
 impl Config {
@@ -103,64 +44,6 @@ impl Config {
     }
 }
 
-impl MainConfig {
-    fn parse(args: &ArgMatches, config_type: &str) -> Result<Self> {
-        let oracle_location = args
-            .value_of("oracle")
-            .expect("No required argument `oracle` found");
-        let block_size: BlockSize = args
-            .value_of("block_size")
-            .expect("No required argument `block_size` found")
-            .into();
-        let log_level = match args.occurrences_of("verbose") {
-            0 => LevelFilter::Info,
-            1 => LevelFilter::Debug,
-            _ => LevelFilter::Trace,
-        };
-        let no_iv = args.is_present("no_iv");
-        let cypher_text = args
-            .value_of("decrypt")
-            .expect("No required argument `decrypt` found");
-        let plain_text = args.value_of("encrypt");
-        let thread_count = args
-            .value_of("threads")
-            .map(|threads| {
-                let threads = threads.parse().context("Thread count failed to parse")?;
-                if threads > 0 {
-                    Ok(threads)
-                } else {
-                    Err(anyhow!("Thread count must be greater than 0"))
-                }
-            })
-            .transpose()?;
-        let output_file = args
-            .value_of("output")
-            .map(|file_path| {
-                let path = PathBuf::from(file_path);
-                if path.exists() {
-                    Err(anyhow!(
-                        "Log file `{}` already exists. Refusing to overwrite/append",
-                        path.display()
-                    ))
-                } else {
-                    Ok(path)
-                }
-            })
-            .transpose()?;
-
-        Ok(Self {
-            oracle_location: OracleLocation::new(oracle_location, config_type)?,
-            cypher_text: CypherText::parse(cypher_text, &block_size, no_iv)?,
-            plain_text: plain_text.map(|plain_text| PlainText::new(plain_text, &block_size)),
-            block_size,
-            log_level,
-            no_iv,
-            thread_count,
-            output_file,
-        })
-    }
-}
-
 impl SubConfig {
     fn parse(args: &ArgMatches, sub_command: &str) -> Result<Self> {
         let thread_delay = args
@@ -176,67 +59,6 @@ impl SubConfig {
         };
 
         Ok(sub_config)
-    }
-}
-
-impl WebConfig {
-    fn parse(args: &ArgMatches, thread_delay: u64) -> Result<Self> {
-        let keyword = args
-            .value_of("keyword")
-            .expect("No default value for argument `keyword`");
-
-        Ok(Self {
-            post_data: args.value_of("data").map(|data| data.to_owned()),
-            headers: match args.values_of("header") {
-                Some(headers) => split_headers(headers)?,
-                None => vec![],
-            },
-            keyword: keyword.into(),
-            user_agent: args
-                .value_of("user_agent")
-                .map(|agent| agent.replace(VERSION_TEMPLATE, VERSION))
-                .expect("No default value for argument `user_agent`"),
-            proxy: args
-                .value_of("proxy")
-                .map(|proxy| Url::from_str(proxy))
-                .transpose()
-                .context("Proxy URL failed to parse")?,
-            proxy_credentials: args
-                .value_of("proxy_credentials")
-                .map(|credentials| {
-                    let split_credentials = credentials
-                        .split_once(':')
-                        .map(|(user, pass)| (user.to_owned(), pass.to_owned()));
-                    split_credentials.context(format!(
-                        "Proxy credentials format invalid! Expected `username:password`, got `{}`.",
-                        credentials
-                    ))
-                })
-                .transpose()?,
-            request_timeout: args
-                .value_of("timeout")
-                .map(|timeout| {
-                    let timeout = timeout.parse().context("Request timeout failed to parse")?;
-                    if timeout > 0 {
-                        Ok(timeout)
-                    } else {
-                        Err(anyhow!("Request timeout must be greater than 0"))
-                    }
-                })
-                .transpose()?
-                .expect("No default value for argument `timeout`"),
-            thread_delay,
-
-            redirect: args.is_present("redirect"),
-            insecure: args.is_present("insecure"),
-            consider_body: args.is_present("consider_body"),
-        })
-    }
-}
-
-impl ScriptConfig {
-    fn parse(_args: &ArgMatches, thread_delay: u64) -> Result<Self> {
-        Ok(Self { thread_delay })
     }
 }
 

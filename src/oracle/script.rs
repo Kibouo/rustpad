@@ -6,7 +6,7 @@ use std::{
 use anyhow::{anyhow, Context, Result};
 
 use crate::{
-    config::{ScriptConfig, SubConfig},
+    config::{script_config::ScriptConfig, SubConfig},
     cypher_text::encode::Encode,
 };
 

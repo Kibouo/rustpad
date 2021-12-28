@@ -1,5 +1,5 @@
 name: rustpad
-version: "1.5.0"
+version: "1.6.0"
 about: Multi-threaded Padding Oracle attacks against any service.
 settings:
     - SubcommandRequired
@@ -88,6 +88,21 @@ args:
         aliases: ["log", "log_file", "log-file"]
         takes_value: true
         global: true
+    - encoding:
+        help: Specify encoding
+        long_help: Specify encoding used by cypher text
+        short: e
+        long: encoding
+        aliases: ["cypher_text_encoding", "cypher-text-encoding"]
+        takes_value: true
+        possible_values: [ "auto", "base64", "base64url", "hex" ]
+        default_value: "auto"
+        global: true
+    - no_url_encode:
+        help: Disable URL encoding and decoding of cypher text
+        long: no-url-encode
+        aliases: ["no_url_encode"]
+        takes_value: false
 
 subcommands:
     - web:

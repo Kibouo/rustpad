@@ -13,7 +13,7 @@ use reqwest::{
 
 use crate::{
     calibrator::calibration_response::CalibrationResponse,
-    config::{SubConfig, WebConfig},
+    config::{web_config::WebConfig, SubConfig},
     cypher_text::encode::Encode,
 };
 
