@@ -3,7 +3,7 @@ use std::str::FromStr;
 use anyhow::{anyhow, Context, Result};
 use clap::ArgMatches;
 use getset::Getters;
-use reqwest::Url;
+use reqwest::{Proxy, Url};
 
 use super::split_headers;
 
@@ -22,9 +22,7 @@ pub struct WebConfig {
     #[getset(get = "pub")]
     user_agent: String,
     #[getset(get = "pub")]
-    proxy: Option<Url>,
-    #[getset(get = "pub")]
-    proxy_credentials: Option<(String, String)>,
+    proxy: Option<Proxy>,
     #[getset(get = "pub")]
     request_timeout: u64,
     #[getset(get = "pub")]
@@ -41,9 +39,21 @@ pub struct WebConfig {
 
 impl WebConfig {
     pub(super) fn parse(args: &ArgMatches) -> Result<Self> {
-        let keyword = args
-            .value_of("keyword")
-            .expect("No default value for argument `keyword`");
+        let proxy_url = args
+            .value_of("proxy")
+            .map(|proxy| Url::from_str(proxy))
+            .transpose()
+            .context("Proxy URL failed to parse")?;
+        let proxy_credentials = args
+            .value_of("proxy_credentials")
+            .map(|credentials| {
+                let split_credentials = credentials.split_once(':');
+                split_credentials.context(format!(
+                    "Proxy credentials format invalid! Expected `username:password`, got `{}`.",
+                    credentials
+                ))
+            })
+            .transpose()?;
 
         Ok(Self {
             post_data: args.value_of("data").map(|data| data.to_owned()),
@@ -51,26 +61,22 @@ impl WebConfig {
                 Some(headers) => split_headers(headers)?,
                 None => vec![],
             },
-            keyword: keyword.into(),
+            keyword: args
+                .value_of("keyword")
+                .expect("No default value for argument `keyword`")
+                .into(),
             user_agent: args
                 .value_of("user_agent")
                 .map(|agent| agent.replace(VERSION_TEMPLATE, VERSION))
                 .expect("No default value for argument `user_agent`"),
-            proxy: args
-                .value_of("proxy")
-                .map(|proxy| Url::from_str(proxy))
-                .transpose()
-                .context("Proxy URL failed to parse")?,
-            proxy_credentials: args
-                .value_of("proxy_credentials")
-                .map(|credentials| {
-                    let split_credentials = credentials
-                        .split_once(':')
-                        .map(|(user, pass)| (user.to_owned(), pass.to_owned()));
-                    split_credentials.context(format!(
-                        "Proxy credentials format invalid! Expected `username:password`, got `{}`.",
-                        credentials
-                    ))
+            proxy: proxy_url
+                .map(|url| -> Result<Proxy> {
+                    let proxy = Proxy::all(url)?;
+                    if let Some((username, password)) = proxy_credentials {
+                        Ok(proxy.basic_auth(username, password))
+                    } else {
+                        Ok(proxy)
+                    }
                 })
                 .transpose()?,
             request_timeout: args

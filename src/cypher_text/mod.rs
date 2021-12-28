@@ -133,7 +133,7 @@ fn decode(input_data: &str, specified_encoding: Option<Encoding>) -> Result<(Vec
         }
 
         Err(anyhow!(
-            "{} has an invalid or unsupported encoding",
+            "`{}` has an invalid or unsupported encoding",
             input_data
         ))
     }
@@ -144,12 +144,12 @@ fn decode(input_data: &str, specified_encoding: Option<Encoding>) -> Result<(Vec
     ) -> Result<(Vec<u8>, Encoding)> {
         let decoded_data = match specified_encoding {
             Encoding::Hex => {
-                hex::decode(&*input_data).context(format!("{} is not valid hex", input_data))
+                hex::decode(&*input_data).context(format!("`{}` is not valid hex", input_data))
             }
             Encoding::Base64 => base64::decode_config(&*input_data, base64::STANDARD)
-                .context(format!("{} is not valid base64", input_data)),
+                .context(format!("`{}` is not valid base64", input_data)),
             Encoding::Base64Url => base64::decode_config(&*input_data, base64::URL_SAFE)
-                .context(format!("{} is not valid base64 (URL safe)", input_data)),
+                .context(format!("`{}` is not valid base64 (URL safe)", input_data)),
         }
         .context("Invalid encoding for cypher text specified")?;
 

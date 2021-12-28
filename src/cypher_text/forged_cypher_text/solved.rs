@@ -50,6 +50,19 @@ impl<'a> From<ForgedCypherText<'a>> for SolvedForgedCypherText<'a> {
     }
 }
 
+/// from cached Block
+impl<'a> From<(ForgedCypherText<'a>, Block)> for SolvedForgedCypherText<'a> {
+    fn from((forged_cypher_text, forged_block_solution): (ForgedCypherText<'a>, Block)) -> Self {
+        Self {
+            original_blocks: forged_cypher_text.original_blocks,
+            url_encoded: forged_cypher_text.url_encoded,
+            used_encoding: forged_cypher_text.used_encoding,
+
+            forged_block_solution,
+        }
+    }
+}
+
 impl<'a> AmountBlocksTrait for SolvedForgedCypherText<'a> {
     fn amount_blocks(&self) -> usize {
         self.original_blocks().len()

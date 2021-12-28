@@ -1,5 +1,5 @@
 name: rustpad
-version: "1.6.0"
+version: "1.7.0"
 about: Multi-threaded Padding Oracle attacks against any service.
 settings:
     - SubcommandRequired
@@ -103,6 +103,14 @@ args:
         long: no-url-encode
         aliases: ["no_url_encode"]
         takes_value: false
+        global: true
+    - no_cache:
+        help: Disable cache
+        long_help: Disable reading and writing to the cache file
+        long: no-cache
+        aliases: ["no_cache"]
+        takes_value: false
+        global: true
 
 subcommands:
     - web:

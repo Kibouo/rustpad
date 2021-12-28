@@ -92,6 +92,14 @@ impl<'a> ForgedCypherText<'a> {
     pub fn bytes_answered(&self) -> u8 {
         (*self.block_size() - 1) - self.current_byte_idx
     }
+
+    pub fn as_cache_key(&self) -> (Block, Block) {
+        // for decryption to work, at least 2 block must exist. CypherText should have already checked this
+        (
+            self.blocks()[self.amount_blocks() - 2].clone(),
+            self.blocks()[self.amount_blocks() - 1].clone(),
+        )
+    }
 }
 
 impl<'a> Encode<'a> for ForgedCypherText<'a> {

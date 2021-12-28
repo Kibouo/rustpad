@@ -1,11 +1,18 @@
 use anyhow::{anyhow, Context, Result};
 use is_executable::IsExecutable;
 use reqwest::Url;
+use serde::{Deserialize, Serialize};
 use std::{convert::TryFrom, path::PathBuf};
 
 #[derive(Debug)]
 pub enum OracleLocation {
     Web(Url),
+    Script(PathBuf),
+}
+
+#[derive(Serialize, Deserialize, Hash, PartialEq, Eq, Clone)]
+pub enum SerializableOracleLocation {
+    Web(String),
     Script(PathBuf),
 }
 
@@ -32,6 +39,24 @@ impl OracleLocation {
                 }
             }
             _ => unreachable!(format!("Sub-command invalid: {}", oracle_type)),
+        }
+    }
+}
+
+impl From<OracleLocation> for SerializableOracleLocation {
+    fn from(oracle_location: OracleLocation) -> Self {
+        match oracle_location {
+            OracleLocation::Web(url) => Self::Web(String::from(url.as_str())),
+            OracleLocation::Script(path) => Self::Script(path),
+        }
+    }
+}
+
+impl From<SerializableOracleLocation> for OracleLocation {
+    fn from(oracle_location: SerializableOracleLocation) -> Self {
+        match oracle_location {
+            SerializableOracleLocation::Web(url) => Self::Web(url.parse().context("URL stored in cache is invalid").expect("Data stored in the cache was verified when it was created. As such, the only possible reason for this must be a corrupted cache file.")),
+            SerializableOracleLocation::Script(path) => Self::Script(path),
         }
     }
 }

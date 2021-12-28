@@ -1,4 +1,8 @@
-use std::{thread, time::Duration};
+use std::{
+    sync::{Arc, Mutex},
+    thread,
+    time::Duration,
+};
 
 use anyhow::{anyhow, Result};
 use log::{debug, warn};
@@ -7,6 +11,7 @@ use retry::{delay::Fibonacci, retry_with_index, OperationResult};
 
 use crate::{
     block::{block_size::BlockSizeTrait, Block},
+    cache::Cache,
     cypher_text::{
         encode::AmountBlocksTrait,
         forged_cypher_text::{solved::SolvedForgedCypherText, ByteLockResult, ForgedCypherText},
@@ -21,6 +26,7 @@ pub mod encryptor;
 
 fn solve_block<'a, W, P>(
     oracle: &impl Oracle,
+    cache: Arc<Mutex<Option<Cache>>>,
     cypher_text_for_block: &ForgedCypherText<'a>,
     wip_update_ui_callback: W,
     progress_update_ui_callback: P,
@@ -32,7 +38,23 @@ where
     let block_to_decrypt_idx = cypher_text_for_block.amount_blocks() - 1;
     let mut cypher_text_for_block = cypher_text_for_block.clone();
 
-    let mut block_solution = None;
+    // check for a cache hit and short-circuit solving it
+    let mut block_solution = cache.lock().unwrap().as_ref().and_then(|cache| {
+        cache
+            .get(&cypher_text_for_block.as_cache_key())
+            .map(|cached_block| {
+                let key = cypher_text_for_block.as_cache_key();
+                debug!(
+                    target: LOG_TARGET,
+                    "Cache hit for ({}, {})",
+                    key.0.to_hex(),
+                    key.1.to_hex()
+                );
+                (progress_update_ui_callback.clone())(*cached_block.block_size() as usize);
+
+                SolvedForgedCypherText::from((cypher_text_for_block.clone(), cached_block.clone()))
+            })
+    });
 
     let mut attempts_to_solve_byte = 1;
     while block_solution.is_none() {
@@ -99,7 +121,22 @@ where
                     }
 
                     // solving the current byte happens to have solved the whole block!
-                    ByteLockResult::Solved(solution) => block_solution = Some(solution),
+                    ByteLockResult::Solved(solution) => {
+                        // solved block, save to cache
+                        let _ = cache
+                            .lock()
+                            .unwrap()
+                            .as_mut()
+                            .map(|cache| {
+                                cache.insert(
+                                    cypher_text_for_block.as_cache_key(),
+                                    solution.forged_block_solution().clone(),
+                                )
+                            })
+                            .transpose()?;
+
+                        block_solution = Some(solution);
+                    }
                 }
             }
             // validation for byte failed, attempt retry

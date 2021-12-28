@@ -1,4 +1,5 @@
 mod block;
+mod cache;
 mod calibrator;
 mod config;
 mod cypher_text;
@@ -9,11 +10,15 @@ mod other;
 mod plain_text;
 mod tui;
 
-use std::time::{Duration, Instant};
+use std::{
+    sync::{Arc, Mutex},
+    time::{Duration, Instant},
+};
 
 use anyhow::{Context, Result};
 use async_std::task;
 use block::block_size::BlockSizeTrait;
+use cache::{cache_config::CacheConfig, Cache};
 use calibrator::calibration_response::CalibrationResponse;
 use crossbeam::thread;
 use cypher_text::encode::{AmountBlocksTrait, Encode};
@@ -128,11 +133,20 @@ where
             let mut oracle = WebOracle::visit(config.oracle_location(), config.sub_config())?;
             let padding_error_response =
                 calibrate_web(&decryptor, update_ui_callback.clone(), &config)?;
-            oracle.set_padding_error_response(Some(padding_error_response));
+            oracle.set_padding_error_response(Some(padding_error_response.clone()));
+            let cache = if *config.no_cache() {
+                None
+            } else {
+                Some(Cache::load_from_file(CacheConfig::new(
+                    oracle.location(),
+                    Some(padding_error_response),
+                ))?)
+            };
 
             logic_main(
                 &decryptor,
                 &oracle,
+                Arc::new(Mutex::new(cache)),
                 encryption_mode,
                 update_ui_callback.clone(),
                 &config,
@@ -141,10 +155,19 @@ where
         OracleLocation::Script(_) => {
             info!(target: LOG_TARGET, "Using script oracle");
             let oracle = ScriptOracle::visit(config.oracle_location(), config.sub_config())?;
+            let cache = if *config.no_cache() {
+                None
+            } else {
+                Some(Cache::load_from_file(CacheConfig::new(
+                    oracle.location(),
+                    None,
+                ))?)
+            };
 
             logic_main(
                 &decryptor,
                 &oracle,
+                Arc::new(Mutex::new(cache)),
                 encryption_mode,
                 update_ui_callback.clone(),
                 &config,
@@ -171,7 +194,7 @@ where
     )));
 
     info!(target: LOG_TARGET, "Calibrating web oracle...");
-    let web_calibrator = decryptor.request_calibrator();
+    let web_calibrator = decryptor.web_calibrator();
     let calibration_oracle =
         CalibrationWebOracle::visit(config.oracle_location(), config.sub_config())?;
     web_calibrator.determine_padding_error_response(calibration_oracle)
@@ -180,6 +203,7 @@ where
 fn logic_main<U>(
     decryptor: &Decryptor<U>,
     oracle: &impl Oracle,
+    cache: Arc<Mutex<Option<Cache>>>,
     encryption_mode: bool,
     mut update_ui_callback: U,
     config: &Config,
@@ -206,7 +230,7 @@ where
     )));
 
     let now = Instant::now();
-    let decryption_results = decryptor.decrypt_blocks(oracle)?;
+    let decryption_results = decryptor.decrypt_blocks(oracle, cache.clone())?;
 
     if encryption_mode {
         let last_block = decryption_results
@@ -232,6 +256,7 @@ where
                     .as_ref()
                     .expect("Should have a plain text in encryption mode"),
                 oracle,
+                cache,
             )?
             .encode();
 

@@ -5,9 +5,11 @@ use std::{
     ops::{BitXor, Deref, DerefMut},
 };
 
+use serde::{Deserialize, Serialize};
+
 use self::block_size::{BlockSize, BlockSizeTrait};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub enum Block {
     Eight([u8; 8]),
     Sixteen([u8; 16]),

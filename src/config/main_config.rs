@@ -22,18 +22,18 @@ pub struct MainConfig {
     #[getset(get = "pub")]
     block_size: BlockSize,
     #[getset(get = "pub")]
-    no_iv: bool,
-    #[getset(get = "pub")]
     log_level: LevelFilter,
     #[getset(get = "pub")]
     thread_count: Option<usize>,
     #[getset(get = "pub")]
     output_file: Option<PathBuf>,
+    #[getset(get = "pub")]
+    no_cache: bool,
 }
 
 impl MainConfig {
     pub(super) fn parse(args: &ArgMatches, config_type: &str) -> Result<Self> {
-        let oracle_location = args
+        let input_oracle_location = args
             .value_of("oracle")
             .expect("No required argument `oracle` found");
         let block_size: BlockSize = args
@@ -46,7 +46,7 @@ impl MainConfig {
             _ => LevelFilter::Trace,
         };
         let no_iv = args.is_present("no_iv");
-        let cypher_text = args
+        let input_cypher_text = args
             .value_of("decrypt")
             .expect("No required argument `decrypt` found");
         let plain_text = args.value_of("encrypt");
@@ -75,7 +75,7 @@ impl MainConfig {
                 }
             })
             .transpose()?;
-        let encoding = {
+        let specified_encoding = {
             let encoding_choice = args
                 .value_of("encoding")
                 .expect("No default value for argument `encoding`");
@@ -86,22 +86,23 @@ impl MainConfig {
             }
         };
         let no_url_encode = args.is_present("no_url_encode");
+        let no_cache = args.is_present("no_cache");
 
         Ok(Self {
-            oracle_location: OracleLocation::new(oracle_location, config_type)?,
+            oracle_location: OracleLocation::new(input_oracle_location, config_type)?,
             cypher_text: CypherText::parse(
-                cypher_text,
+                input_cypher_text,
                 &block_size,
                 no_iv,
-                encoding,
+                specified_encoding,
                 no_url_encode,
             )?,
             plain_text: plain_text.map(|plain_text| PlainText::new(plain_text, &block_size)),
             block_size,
             log_level,
-            no_iv,
             thread_count,
             output_file,
+            no_cache,
         })
     }
 }

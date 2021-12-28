@@ -1,8 +1,11 @@
+use std::sync::{Arc, Mutex};
+
 use anyhow::Result;
 use log::{debug, info};
 
 use crate::{
     block::{block_size::BlockSizeTrait, Block},
+    cache::Cache,
     cypher_text::{
         encode::AmountBlocksTrait,
         forged_cypher_text::{solved::SolvedForgedCypherText, ForgedCypherText},
@@ -42,6 +45,7 @@ where
         &self,
         plain_text: &PlainText,
         oracle: &impl Oracle,
+        cache: Arc<Mutex<Option<Cache>>>,
     ) -> Result<CypherText> {
         let mut encrypted_blocks_backwards = vec![self.initial_block.block_to_decrypt().clone()];
 
@@ -80,6 +84,7 @@ where
                 );
                 let block_solution = solve_block(
                     oracle,
+                    cache.clone(),
                     &forged_cypher_text,
                     |block, idx| {
                         (self.update_ui_callback.clone())(UiEvent::Encryption(

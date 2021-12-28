@@ -8,7 +8,7 @@ use reqwest::{
     blocking::{Client, ClientBuilder},
     header::{HeaderMap, HeaderName, HeaderValue},
     redirect::Policy,
-    Proxy, Url,
+    Url,
 };
 
 use crate::{
@@ -259,12 +259,8 @@ fn build_web_oracle<'a>(
     if !oracle_config.redirect() {
         client_builder = client_builder.redirect(Policy::none());
     }
-    if let Some(proxy_url) = oracle_config.proxy() {
-        let mut proxy = Proxy::all(proxy_url.clone())?;
-        if let Some((username, password)) = oracle_config.proxy_credentials() {
-            proxy = proxy.basic_auth(username, password);
-        }
-        client_builder = client_builder.proxy(proxy);
+    if let Some(proxy) = oracle_config.proxy() {
+        client_builder = client_builder.proxy(proxy.clone());
     }
 
     let web_client = client_builder.build().context("Web client setup failed")?;

@@ -1,8 +1,11 @@
+use std::sync::{Arc, Mutex};
+
 use anyhow::Result;
 use log::{debug, info};
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
 use crate::{
+    cache::Cache,
     calibrator::Calibrator,
     cypher_text::{
         encode::AmountBlocksTrait,
@@ -44,7 +47,7 @@ where
         )
     }
 
-    pub fn request_calibrator(&self) -> Calibrator {
+    pub fn web_calibrator(&self) -> Calibrator {
         // can't panic as the constructor checks for at least 1 forged cypher text being created
         Calibrator::new(self.forged_cypher_texts[0].clone())
     }
@@ -75,7 +78,11 @@ where
     }
 
     /// Actually performs the oracle attack to decrypt each block available through `ForgedCypherText`s.
-    pub fn decrypt_blocks(&self, oracle: &impl Oracle) -> Result<Vec<SolvedForgedCypherText<'a>>> {
+    pub fn decrypt_blocks(
+        &self,
+        oracle: &impl Oracle,
+        cache: Arc<Mutex<Option<Cache>>>,
+    ) -> Result<Vec<SolvedForgedCypherText<'a>>> {
         self.forged_cypher_texts
             .par_iter()
             .enumerate()
@@ -84,6 +91,7 @@ where
                     let block_to_decrypt_idx = forged_cypher_text.amount_blocks() - 1;
                     let block_solution = solve_block(
                         oracle,
+                        cache.clone(),
                         forged_cypher_text,
                         |block, idx| {
                             (self.update_ui_callback.clone())(UiEvent::Decryption(

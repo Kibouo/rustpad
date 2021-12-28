@@ -19,7 +19,7 @@
 | <p align="center">Arch linux</p>                                                                                                                                             | <p align="center">Kali / Debian</p>                                                                                                                         | <p align="center">Others</p>                                                                                                                                   |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `yay -Syu rustpad`                                                                                                                                                           | `apt install ./rustpad.deb`                                                                                                                                 | `cargo install rustpad`                                                                                                                                        |
-| <p align="center"><a href="https://aur.archlinux.org/packages/rustpad-bin/"><img alt="aur shield" src="https://img.shields.io:/aur/version/rustpad-bin?color=blue"/></a></p> | <p align="center"><a href="https://github.com/Kibouo/rustpad/releases"><img alt="deb shield" src="https://img.shields.io/badge/deb-v1.6.0-purple"/></a></p> | <p align="center"><a href="https://crates.io/crates/rustpad"><img alt="crates.io shield" src="https://img.shields.io:/crates/v/rustpad?color=yellow"/></a></p> |
+| <p align="center"><a href="https://aur.archlinux.org/packages/rustpad-bin/"><img alt="aur shield" src="https://img.shields.io:/aur/version/rustpad-bin?color=blue"/></a></p> | <p align="center"><a href="https://github.com/Kibouo/rustpad/releases"><img alt="deb shield" src="https://img.shields.io/badge/deb-v1.7.0-purple"/></a></p> | <p align="center"><a href="https://crates.io/crates/rustpad"><img alt="crates.io shield" src="https://img.shields.io:/crates/v/rustpad?color=yellow"/></a></p> |
 
 ## 🔪🏛️ A multi-threaded what now?
 `rustpad` is a multi-threaded successor to the classic [`padbuster`](https://github.com/AonCyberLabs/PadBuster), written in Rust. It abuses a [Padding Oracle vulnerability](https://en.wikipedia.org/wiki/Padding_oracle_attack) to decrypt any cypher text or encrypt arbitrary plain text **without knowing the encryption key**!
@@ -160,10 +160,9 @@ Script must respond with exit code 0 for correct padding, and any other code oth
 ```
 
 ## 🕥💤 Coming soon
-- [ ] caching mechanism
 - [ ] tab auto-complete
 - [ ] smarter URL parsing
-- [ ] advanced calibration: response text should contain "x"
+- [ ] advanced calibration: response text should contain "x", time-based
 - [ ] automated block size detection
 - [ ] improve linux binary's file size
 - [ ] .NET URL token encoding?
