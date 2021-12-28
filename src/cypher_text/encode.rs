@@ -29,12 +29,12 @@ impl FromStr for Encoding {
     type Err = anyhow::Error;
 
     fn from_str(input: &str) -> Result<Self> {
-        if input == "base64" {
+        if input == "hex" {
+            Ok(Encoding::Hex)
+        } else if input == "base64" {
             Ok(Encoding::Base64)
         } else if input == "base64url" {
             Ok(Encoding::Base64Url)
-        } else if input == "hex" {
-            Ok(Encoding::Hex)
         } else {
             Err(anyhow!("Unknown encoding: {}", input))
         }

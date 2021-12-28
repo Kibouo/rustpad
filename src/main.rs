@@ -44,6 +44,18 @@ fn main() -> Result<()> {
 
     config_thread_pool(*config.thread_count())?;
     init_logging(*config.log_level(), config.output_file().as_deref())?;
+    // couldn't log cypher text info during parsing as logger wasn't initiated yet
+    info!(target: LOG_TARGET, "Using encoding:");
+    info!(
+        target: LOG_TARGET,
+        "- {:?}",
+        config.cypher_text().used_encoding(),
+    );
+    info!(
+        target: LOG_TARGET,
+        "- URL encoded: {}",
+        config.cypher_text().url_encoded()
+    );
 
     let tui = Tui::new(config.block_size()).context("TUI creation failed")?;
 
