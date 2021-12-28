@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::ArgMatches;
 use getset::Getters;
 
@@ -9,7 +9,13 @@ pub struct ScriptConfig {
 }
 
 impl ScriptConfig {
-    pub(super) fn parse(_args: &ArgMatches, thread_delay: u64) -> Result<Self> {
-        Ok(Self { thread_delay })
+    pub(super) fn parse(args: &ArgMatches) -> Result<Self> {
+        Ok(Self {
+            thread_delay: args
+                .value_of("delay")
+                .map(|delay| delay.parse().context("Thread delay failed to parse"))
+                .transpose()?
+                .expect("No default value for argument `delay`"),
+        })
     }
 }

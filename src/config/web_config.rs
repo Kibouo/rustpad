@@ -40,7 +40,7 @@ pub struct WebConfig {
 }
 
 impl WebConfig {
-    pub(super) fn parse(args: &ArgMatches, thread_delay: u64) -> Result<Self> {
+    pub(super) fn parse(args: &ArgMatches) -> Result<Self> {
         let keyword = args
             .value_of("keyword")
             .expect("No default value for argument `keyword`");
@@ -85,7 +85,11 @@ impl WebConfig {
                 })
                 .transpose()?
                 .expect("No default value for argument `timeout`"),
-            thread_delay,
+            thread_delay: args
+                .value_of("delay")
+                .map(|delay| delay.parse().context("Thread delay failed to parse"))
+                .transpose()?
+                .expect("No default value for argument `delay`"),
 
             redirect: args.is_present("redirect"),
             insecure: args.is_present("insecure"),

@@ -46,15 +46,9 @@ impl Config {
 
 impl SubConfig {
     fn parse(args: &ArgMatches, sub_command: &str) -> Result<Self> {
-        let thread_delay = args
-            .value_of("delay")
-            .map(|delay| delay.parse().context("Thread delay failed to parse"))
-            .transpose()?
-            .expect("No default value for argument `delay`");
-
         let sub_config = match sub_command {
-            "web" => SubConfig::Web(WebConfig::parse(args, thread_delay)?),
-            "script" => SubConfig::Script(ScriptConfig::parse(args, thread_delay)?),
+            "web" => SubConfig::Web(WebConfig::parse(args)?),
+            "script" => SubConfig::Script(ScriptConfig::parse(args)?),
             _ => unreachable!(format!("Invalid sub-command: {}", sub_command)),
         };
 
