@@ -89,8 +89,8 @@ args:
         takes_value: true
         global: true
     - encoding:
-        help: Specify encoding
-        long_help: Specify encoding used by cypher text
+        help: Specify cypher text encoding
+        long_help: Specify encoding used by the oracle to encode the cypher text
         short: e
         long: encoding
         aliases: ["cypher_text_encoding", "cypher-text-encoding"]

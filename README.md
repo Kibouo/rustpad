@@ -60,18 +60,36 @@ OPTIONS:
     -D, --decrypt <decrypt>
             Original cypher text, received from the target service, which is to be decrypted
 
+        --delay <delay>
+            Delay between requests within a thread, in milliseconds [default: 0]
+
+    -e, --encoding <encoding>
+            Specify encoding used by the oracle to encode the cypher text [default: auto]  [possible values: auto, base64, base64url, hex]
+
     -E, --encrypt <encrypt>
             Plain text to encrypt. Encryption mode requires a cypher text to gather necessary data
 
     -h, --help
             Prints help information
 
+        --no-cache
+            Disable reading and writing to the cache file
+
     -n, --no-iv
             Cypher text does not include an Initialisation Vector
+
+        --no-url-encode
+            Disable URL encoding and decoding of cypher text
 
     -O, --oracle <oracle>
             The oracle to question with forged cypher texts. This can be a URL or a shell script.
             See the subcommands `web --help` and `script --help` respectively for further help.
+    -o, --output <output>
+            File path to which log output will be written
+
+    -t, --threads <threads>
+            Amount of threads in the thread pool
+
     -V, --version
             Prints version information
 
@@ -104,6 +122,12 @@ OPTIONS:
     -d, --data <data>
             Data to send in a POST request
 
+        --delay <delay>
+            Delay between requests within a thread, in milliseconds [default: 0]
+
+    -e, --encoding <encoding>
+            Specify encoding used by the oracle to encode the cypher text [default: auto]  [possible values: auto, base64, base64url, hex]
+
     -h, --help
             Prints help information
 
@@ -116,11 +140,32 @@ OPTIONS:
     -K, --keyword <keyword>
             Keyword indicating the location of the cypher text in the HTTP request. It is replaced by the cypher text's value at runtime [default: CTEXT]
 
+        --no-cache
+            Disable reading and writing to the cache file
+
     -n, --no-iv
             Cypher text does not include an Initialisation Vector
 
+        --no-url-encode
+            Disable URL encoding and decoding of cypher text
+
+    -o, --output <output>
+            File path to which log output will be written
+
+    -x, --proxy <proxy>
+            Proxy server to send web requests over. Supports HTTP(S) and SOCKS5
+
+        --proxy-credentials <proxy_credentials>
+            Credentials to authenticate against the proxy server with [format: <user>:<pass>]
+
     -r, --redirect
             Follow 302 Redirects
+
+    -t, --threads <threads>
+            Amount of threads in the thread pool
+
+    -T, --timeout <timeout>
+            Web request timeout in seconds [default: 10]
 
     -A, --user-agent <user_agent>
             User-agent to identify with [default: rustpad/<version>]
@@ -146,11 +191,29 @@ USAGE:
     rustpad --block-size <block_size> --decrypt <decrypt> --oracle <oracle> script [OPTIONS]
 
 OPTIONS:
+        --delay <delay>
+            Delay between requests within a thread, in milliseconds [default: 0]
+
+    -e, --encoding <encoding>
+            Specify encoding used by the oracle to encode the cypher text [default: auto]  [possible values: auto, base64, base64url, hex]
+
     -h, --help
             Prints help information
 
+        --no-cache
+            Disable reading and writing to the cache file
+
     -n, --no-iv
             Cypher text does not include an Initialisation Vector
+
+        --no-url-encode
+            Disable URL encoding and decoding of cypher text
+
+    -o, --output <output>
+            File path to which log output will be written
+
+    -t, --threads <threads>
+            Amount of threads in the thread pool
 
     -v, --verbose
             Increase verbosity of logging
