@@ -24,7 +24,7 @@ pub struct MainConfig {
     #[getset(get = "pub")]
     log_level: LevelFilter,
     #[getset(get = "pub")]
-    thread_count: Option<usize>,
+    thread_count: usize,
     #[getset(get = "pub")]
     output_file: Option<PathBuf>,
     #[getset(get = "pub")]
@@ -60,7 +60,8 @@ impl MainConfig {
                     Err(anyhow!("Thread count must be greater than 0"))
                 }
             })
-            .transpose()?;
+            .transpose()?
+            .expect("No required argument `threads` found");
         let output_file = args
             .value_of("output")
             .map(|file_path| {

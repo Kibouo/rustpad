@@ -1,6 +1,6 @@
 [package]
 name = "rustpad"
-version = "1.7.0"
+version = "1.7.1"
 description = "Multi-threaded Padding Oracle attacks against any service."
 authors = ["Csonka Mihaly <csonka.mihaly@hotmail.com>"]
 license = "GPL-3.0"

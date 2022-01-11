@@ -1,5 +1,5 @@
 name: rustpad
-version: "1.7.0"
+version: "1.7.1"
 about: Multi-threaded Padding Oracle attacks against any service.
 settings:
     - SubcommandRequired
@@ -71,6 +71,7 @@ args:
         long: threads
         takes_value: true
         aliases: ["thread_count", "thread-count"]
+        default_value: "64"
         global: true
     - delay:
         help: Delay between requests within a thread
