@@ -24,7 +24,7 @@ where
     U: FnMut(UiEvent) + Sync + Send + Clone,
 {
     // intermediate of last block of the user provided cypher text
-    initial_block: SolvedForgedCypherText<'a>,
+    initial_block_solution: SolvedForgedCypherText<'a>,
     update_ui_callback: U,
 }
 
@@ -32,11 +32,11 @@ impl<'a, U> Encryptor<'a, U>
 where
     U: FnMut(UiEvent) + Sync + Send + Clone,
 {
-    pub fn new(update_ui_callback: U, initial_block: SolvedForgedCypherText<'a>) -> Self {
+    pub fn new(update_ui_callback: U, initial_block_solution: SolvedForgedCypherText<'a>) -> Self {
         debug!(target: LOG_TARGET, "Preparing to encrypt plain text");
 
         Self {
-            initial_block,
+            initial_block_solution,
             update_ui_callback,
         }
     }
@@ -47,14 +47,15 @@ where
         oracle: &impl Oracle,
         cache: Arc<Mutex<Option<Cache>>>,
     ) -> Result<CypherText> {
-        let mut encrypted_blocks_backwards = vec![self.initial_block.block_to_decrypt().clone()];
+        let mut encrypted_blocks_backwards =
+            vec![self.initial_block_solution.block_to_decrypt().clone()];
 
         // encrypting requires iteratively, backwards, building up the cypher text. Unlike with decrypting, we don't know each block beforehand. So obviously this can't be done in parallel
         for (i, plain_text_block) in plain_text.blocks().iter().rev().enumerate() {
             let intermediate = if i == 0 {
-                let block_solution = self.initial_block.forged_block_solution();
+                let block_solution = self.initial_block_solution.forged_block_solution();
 
-                // encryption of this block is already finished as it's identical to decryption of the initial block
+                // decryption of this block is already finished as it's simply the initial block (the last block of the cypher text)
                 (self.update_ui_callback.clone())(UiEvent::Control(
                     UiControlEvent::ProgressUpdate(*plain_text_block.block_size() as usize),
                 ));
@@ -69,6 +70,7 @@ where
                 // prepend an empty block which is to serve as the forgeable block
                 let blocks_to_solve = vec![
                     Block::new(&plain_text_block.block_size()),
+                    // Use only the last block, as forging a block is only dependant on its "pair". Not having to send all blocks saves bandwidth and processing time, for us and the oracle
                     encrypted_blocks_backwards
                         .last()
                         .expect(
@@ -79,16 +81,17 @@ where
                 let forged_cypher_text = ForgedCypherText::from_slice(
                     &blocks_to_solve[..],
                     plain_text_block.block_size(),
-                    *self.initial_block.url_encoded(),
-                    *self.initial_block.used_encoding(),
+                    *self.initial_block_solution.url_encoded(),
+                    *self.initial_block_solution.used_encoding(),
                 );
                 let block_solution = solve_block(
                     oracle,
                     cache.clone(),
                     &forged_cypher_text,
-                    |block, idx| {
+                    // we don't send all blocks, but only the 2 (pair) needed to progress. The current block thus cannot be determined from the length of `ForgedCypherText`, as is done in `solve_block`.
+                    |block, _| {
                         (self.update_ui_callback.clone())(UiEvent::Encryption(
-                            UiEncryptionEvent::BlockWip(block, idx),
+                            UiEncryptionEvent::BlockWip(block, plain_text.amount_blocks() - i),
                         ));
                     },
                     |newly_solved_bytes| {
@@ -121,8 +124,8 @@ where
 
         Ok(CypherText::from_iter(
             encrypted_blocks_backwards.iter().rev(),
-            *self.initial_block.url_encoded(),
-            *self.initial_block.used_encoding(),
+            *self.initial_block_solution.url_encoded(),
+            *self.initial_block_solution.used_encoding(),
         ))
     }
 }
