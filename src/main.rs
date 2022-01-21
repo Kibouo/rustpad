@@ -47,7 +47,7 @@ use crate::{
 fn main() -> Result<()> {
     let config = Config::parse()?;
 
-    config_thread_pool(*config.thread_count())?;
+    config_thread_pool(config.thread_count())?;
     init_logging(*config.log_level(), config.output_file().as_deref())?;
     // couldn't log cypher text info during parsing as logger wasn't initiated yet
     info!(target: LOG_TARGET, "Using encoding:");

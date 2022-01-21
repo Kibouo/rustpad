@@ -1,6 +1,6 @@
 pub mod calibrate_web;
 
-use std::{collections::HashMap, str::FromStr, time::Duration};
+use std::{collections::HashMap, str::FromStr};
 
 use anyhow::{anyhow, Context, Result};
 use getset::Setters;
@@ -13,7 +13,7 @@ use reqwest::{
 
 use crate::{
     calibrator::calibration_response::CalibrationResponse,
-    config::{web_config::WebConfig, SubConfig},
+    config::{thread_delay::ThreadDelay, web_config::WebConfig, SubConfig},
     cypher_text::encode::Encode,
 };
 
@@ -75,8 +75,8 @@ impl Oracle for WebOracle {
     fn location(&self) -> OracleLocation {
         OracleLocation::Web(self.url.clone())
     }
-    fn thread_delay(&self) -> u64 {
-        *self.config.thread_delay()
+    fn thread_delay(&self) -> &ThreadDelay {
+        self.config.thread_delay()
     }
 }
 
@@ -151,32 +151,41 @@ fn replace_keyword_in_headers(
         .headers()
         .iter()
         .enumerate()
-        .map(|(idx, (name, value))| {
+        .map(|(idx, header)| {
             // check if this header contains the keyword
             let (header_name, header_value) = match headers_with_keyword.get(&idx) {
                 // do `HeaderName/HeaderValue::from_str` right away so we can prevent some `clone`s
                 Some(replace_location) => {
                     // replace if needed
                     let resulting_name = if replace_location.keyword_in_name {
-                        HeaderName::from_str(&name.replace(config.keyword(), encoded_cypher_text))
+                        HeaderName::from_str(
+                            &header.name().replace(config.keyword(), encoded_cypher_text),
+                        )
                     } else {
-                        HeaderName::from_str(name)
+                        HeaderName::from_str(header.name())
                     };
 
                     let resulting_value = if replace_location.keyword_in_value {
-                        HeaderValue::from_str(&value.replace(config.keyword(), encoded_cypher_text))
+                        HeaderValue::from_str(
+                            &header
+                                .value()
+                                .replace(config.keyword(), encoded_cypher_text),
+                        )
                     } else {
-                        HeaderValue::from_str(value)
+                        HeaderValue::from_str(header.value())
                     };
 
                     (resulting_name, resulting_value)
                 }
-                None => (HeaderName::from_str(name), HeaderValue::from_str(value)),
+                None => (
+                    HeaderName::from_str(header.name()),
+                    HeaderValue::from_str(header.value()),
+                ),
             };
 
             Ok((
-                header_name.context(format!("Header name invalid: {}", name))?,
-                header_value.context(format!("Header value invalid: {}", value))?,
+                header_name.context(format!("Header name invalid: {}", header.name()))?,
+                header_value.context(format!("Header value invalid: {}", header.value()))?,
             ))
         })
         .collect::<Result<_>>()
@@ -203,9 +212,9 @@ fn keyword_location(url: &Url, config: &WebConfig) -> Vec<KeywordLocation> {
         .headers()
         .iter()
         .enumerate()
-        .filter_map(|(idx, (name, value))| {
-            let keyword_in_name = name.contains(config.keyword());
-            let keyword_in_value = value.contains(config.keyword());
+        .filter_map(|(idx, header)| {
+            let keyword_in_name = header.name().contains(config.keyword());
+            let keyword_in_value = header.value().contains(config.keyword());
 
             if keyword_in_name || keyword_in_value {
                 Some((
@@ -253,9 +262,9 @@ fn build_web_oracle<'a>(
     }
 
     let mut client_builder = ClientBuilder::new()
-        .timeout(Duration::from_secs(*oracle_config.request_timeout()))
+        .timeout(**oracle_config.request_timeout())
         .danger_accept_invalid_certs(*oracle_config.insecure())
-        .user_agent(oracle_config.user_agent());
+        .user_agent(&**oracle_config.user_agent());
     if !oracle_config.redirect() {
         client_builder = client_builder.redirect(Policy::none());
     }

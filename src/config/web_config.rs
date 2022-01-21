@@ -1,14 +1,11 @@
-use std::str::FromStr;
-
-use anyhow::{anyhow, Context, Result};
-use clap::ArgMatches;
+use anyhow::Result;
 use getset::Getters;
-use reqwest::{Proxy, Url};
+use reqwest::Proxy;
 
-use super::split_headers;
-
-const VERSION_TEMPLATE: &str = "<version>";
-const VERSION: &str = env!("CARGO_PKG_VERSION");
+use super::{
+    cli::WebCli, header::Header, request_timeout::RequestTimeout, thread_delay::ThreadDelay,
+    user_agent::UserAgent,
+};
 
 #[derive(Debug, Clone, Getters)]
 pub struct WebConfig {
@@ -16,17 +13,17 @@ pub struct WebConfig {
     #[getset(get = "pub")]
     post_data: Option<String>,
     #[getset(get = "pub")]
-    headers: Vec<(String, String)>,
+    headers: Vec<Header>,
     #[getset(get = "pub")]
     keyword: String,
     #[getset(get = "pub")]
-    user_agent: String,
+    user_agent: UserAgent,
     #[getset(get = "pub")]
     proxy: Option<Proxy>,
     #[getset(get = "pub")]
-    request_timeout: u64,
+    request_timeout: RequestTimeout,
     #[getset(get = "pub")]
-    thread_delay: u64,
+    thread_delay: ThreadDelay,
 
     // flags
     #[getset(get = "pub")]
@@ -37,69 +34,31 @@ pub struct WebConfig {
     consider_body: bool,
 }
 
-impl WebConfig {
-    pub(super) fn parse(args: &ArgMatches) -> Result<Self> {
-        let proxy_url = args
-            .value_of("proxy")
-            .map(|proxy| Url::from_str(proxy))
-            .transpose()
-            .context("Proxy URL failed to parse")?;
-        let proxy_credentials = args
-            .value_of("proxy_credentials")
-            .map(|credentials| {
-                let split_credentials = credentials.split_once(':');
-                split_credentials.context(format!(
-                    "Proxy credentials format invalid! Expected `username:password`, got `{}`.",
-                    credentials
-                ))
-            })
-            .transpose()?;
+impl TryFrom<WebCli> for WebConfig {
+    type Error = anyhow::Error;
 
+    fn try_from(cli: WebCli) -> Result<Self> {
         Ok(Self {
-            post_data: args.value_of("data").map(|data| data.to_owned()),
-            headers: match args.values_of("header") {
-                Some(headers) => split_headers(headers)?,
-                None => vec![],
-            },
-            keyword: args
-                .value_of("keyword")
-                .expect("No default value for argument `keyword`")
-                .into(),
-            user_agent: args
-                .value_of("user_agent")
-                .map(|agent| agent.replace(VERSION_TEMPLATE, VERSION))
-                .expect("No default value for argument `user_agent`"),
-            proxy: proxy_url
+            post_data: cli.post_data,
+            headers: cli.header,
+            keyword: cli.keyword,
+            user_agent: cli.user_agent,
+            proxy: cli
+                .proxy_url
                 .map(|url| -> Result<Proxy> {
                     let proxy = Proxy::all(url)?;
-                    if let Some((username, password)) = proxy_credentials {
-                        Ok(proxy.basic_auth(username, password))
+                    if let Some(proxy_creds) = cli.proxy_credentials {
+                        Ok(proxy.basic_auth(proxy_creds.username(), proxy_creds.password()))
                     } else {
                         Ok(proxy)
                     }
                 })
                 .transpose()?,
-            request_timeout: args
-                .value_of("timeout")
-                .map(|timeout| {
-                    let timeout = timeout.parse().context("Request timeout failed to parse")?;
-                    if timeout > 0 {
-                        Ok(timeout)
-                    } else {
-                        Err(anyhow!("Request timeout must be greater than 0"))
-                    }
-                })
-                .transpose()?
-                .expect("No default value for argument `timeout`"),
-            thread_delay: args
-                .value_of("delay")
-                .map(|delay| delay.parse().context("Thread delay failed to parse"))
-                .transpose()?
-                .expect("No default value for argument `delay`"),
-
-            redirect: args.is_present("redirect"),
-            insecure: args.is_present("insecure"),
-            consider_body: args.is_present("consider_body"),
+            request_timeout: cli.request_timeout,
+            thread_delay: cli.thread_delay,
+            redirect: cli.redirect,
+            insecure: cli.no_cert_validation,
+            consider_body: cli.consider_body,
         })
     }
 }

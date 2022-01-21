@@ -6,7 +6,7 @@ use reqwest::{
 };
 
 use crate::{
-    config::{web_config::WebConfig, SubConfig},
+    config::{thread_delay::ThreadDelay, web_config::WebConfig, SubConfig},
     cypher_text::encode::Encode,
     oracle::oracle_location::OracleLocation,
 };
@@ -61,7 +61,7 @@ impl CalibrationWebOracle {
         request.send().context("Sending request failed")
     }
 
-    pub fn thread_delay(&self) -> u64 {
-        *self.config.thread_delay()
+    pub fn thread_delay(&self) -> &ThreadDelay {
+        self.config.thread_delay()
     }
 }

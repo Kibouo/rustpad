@@ -1,21 +1,20 @@
-use anyhow::{Context, Result};
-use clap::ArgMatches;
+use anyhow::Result;
 use getset::Getters;
+
+use super::{cli::ScriptCli, thread_delay::ThreadDelay};
 
 #[derive(Debug, Clone, Getters)]
 pub struct ScriptConfig {
     #[getset(get = "pub")]
-    thread_delay: u64,
+    thread_delay: ThreadDelay,
 }
 
-impl ScriptConfig {
-    pub(super) fn parse(args: &ArgMatches) -> Result<Self> {
+impl TryFrom<ScriptCli> for ScriptConfig {
+    type Error = anyhow::Error;
+
+    fn try_from(cli: ScriptCli) -> Result<Self> {
         Ok(Self {
-            thread_delay: args
-                .value_of("delay")
-                .map(|delay| delay.parse().context("Thread delay failed to parse"))
-                .transpose()?
-                .expect("No default value for argument `delay`"),
+            thread_delay: cli.thread_delay,
         })
     }
 }

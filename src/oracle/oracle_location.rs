@@ -2,9 +2,9 @@ use anyhow::{anyhow, Context, Result};
 use is_executable::IsExecutable;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
-use std::{convert::TryFrom, path::PathBuf};
+use std::{path::PathBuf, str::FromStr};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum OracleLocation {
     Web(Url),
     Script(PathBuf),
@@ -16,30 +16,26 @@ pub enum SerializableOracleLocation {
     Script(PathBuf),
 }
 
-impl OracleLocation {
-    pub fn new(oracle_location: &str, oracle_type: &str) -> Result<Self> {
-        match oracle_type {
-            "web" => Ok(Self::Web(Url::try_from(oracle_location).context(
-                format!("URL `{}` invalid. Double check the URL", oracle_location),
-            )?)),
-            "script" => {
-                let path = PathBuf::from(oracle_location);
-                if !path.is_file() {
-                    Err(anyhow!(
-                        "Path `{}` does not point to a file. Double check the path",
-                        oracle_location
-                    ))
-                } else if !path.is_executable() {
-                    Err(anyhow!(
-                        "File `{}` is not executable. Double check its permissions",
-                        oracle_location
-                    ))
-                } else {
-                    Ok(Self::Script(path))
-                }
+impl FromStr for OracleLocation {
+    type Err = anyhow::Error;
+
+    fn from_str(oracle_location: &str) -> Result<Self> {
+        Url::parse(oracle_location).map(Self::Web).or_else(|_| {
+            let path = PathBuf::from(oracle_location);
+            if !path.is_file() {
+                Err(anyhow!(
+                    "`{}` does not point to a file. Double check the path",
+                    oracle_location
+                ))
+            } else if !path.is_executable() {
+                Err(anyhow!(
+                    "`{}` is not executable. Double check its permissions",
+                    oracle_location
+                ))
+            } else {
+                Ok(Self::Script(path))
             }
-            _ => unreachable!(format!("Sub-command invalid: {}", oracle_type)),
-        }
+        })
     }
 }
 

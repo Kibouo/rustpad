@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use anyhow::{anyhow, Result};
 
-use crate::block::Block;
+use crate::{block::Block, config::encoding_option::EncodingOption};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Encoding {
@@ -37,6 +37,21 @@ impl FromStr for Encoding {
             Ok(Encoding::Base64Url)
         } else {
             Err(anyhow!("Unknown encoding: {}", input))
+        }
+    }
+}
+
+impl TryFrom<&EncodingOption> for Encoding {
+    type Error = anyhow::Error;
+
+    fn try_from(encoding: &EncodingOption) -> Result<Self> {
+        match encoding {
+            EncodingOption::Hex => Ok(Encoding::Hex),
+            EncodingOption::Base64 => Ok(Encoding::Base64),
+            EncodingOption::Base64Url => Ok(Encoding::Base64Url),
+            EncodingOption::Auto => Err(anyhow!(
+                "`EncodingOption::Auto` cannot be converted into a specific `Encoding`"
+            )),
         }
     }
 }

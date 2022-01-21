@@ -1,7 +1,10 @@
 pub mod encode;
 pub mod forged_cypher_text;
 
-use crate::block::{block_size::BlockSizeTrait, Block};
+use crate::{
+    block::{block_size::BlockSizeTrait, Block},
+    config::encoding_option::EncodingOption,
+};
 use std::borrow::Cow;
 
 use anyhow::{anyhow, Context, Result};
@@ -22,7 +25,7 @@ impl CypherText {
         input_data: &str,
         block_size: &BlockSize,
         no_iv: bool,
-        specified_encoding: Option<Encoding>,
+        encoding: &EncodingOption,
         no_url_encode: bool,
     ) -> Result<Self> {
         let url_decoded = if no_url_encode {
@@ -32,7 +35,7 @@ impl CypherText {
             urlencoding::decode(input_data).unwrap_or(Cow::Borrowed(input_data))
         };
 
-        let (decoded_data, used_encoding) = decode(&url_decoded, specified_encoding)?;
+        let (decoded_data, used_encoding) = decode(&url_decoded, encoding)?;
         let blocks = split_into_blocks(&decoded_data[..], *block_size)?;
         let blocks = if no_iv {
             [Block::new(block_size)]
@@ -118,7 +121,7 @@ impl AmountBlocksTrait for CypherText {
     }
 }
 
-fn decode(input_data: &str, specified_encoding: Option<Encoding>) -> Result<(Vec<u8>, Encoding)> {
+fn decode(input_data: &str, encoding: &EncodingOption) -> Result<(Vec<u8>, Encoding)> {
     fn auto_decode(input_data: &str) -> Result<(Vec<u8>, Encoding)> {
         if let Ok(decoded_data) = hex::decode(&*input_data) {
             return Ok((decoded_data, Encoding::Hex));
@@ -138,11 +141,8 @@ fn decode(input_data: &str, specified_encoding: Option<Encoding>) -> Result<(Vec
         ))
     }
 
-    fn forced_decode(
-        input_data: &str,
-        specified_encoding: Encoding,
-    ) -> Result<(Vec<u8>, Encoding)> {
-        let decoded_data = match specified_encoding {
+    fn forced_decode(input_data: &str, encoding: Encoding) -> Result<(Vec<u8>, Encoding)> {
+        let decoded_data = match encoding {
             Encoding::Hex => {
                 hex::decode(&*input_data).context(format!("`{}` is not valid hex", input_data))
             }
@@ -153,13 +153,15 @@ fn decode(input_data: &str, specified_encoding: Option<Encoding>) -> Result<(Vec
         }
         .context("Invalid encoding for cypher text specified")?;
 
-        Ok((decoded_data, specified_encoding))
+        Ok((decoded_data, encoding))
     }
 
-    if let Some(specified_encoding) = specified_encoding {
-        forced_decode(input_data, specified_encoding)
-    } else {
-        auto_decode(input_data)
+    match encoding {
+        EncodingOption::Auto => auto_decode(input_data),
+        _ => {
+            let encoding = Encoding::try_from(encoding)?;
+            forced_decode(input_data, encoding)
+        }
     }
 }
 

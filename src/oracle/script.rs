@@ -6,7 +6,7 @@ use std::{
 use anyhow::{anyhow, Context, Result};
 
 use crate::{
-    config::{script_config::ScriptConfig, SubConfig},
+    config::{script_config::ScriptConfig, thread_delay::ThreadDelay, SubConfig},
     cypher_text::encode::Encode,
 };
 
@@ -62,7 +62,7 @@ impl Oracle for ScriptOracle {
     fn location(&self) -> OracleLocation {
         OracleLocation::Script(self.path.clone())
     }
-    fn thread_delay(&self) -> u64 {
-        *self.config.thread_delay()
+    fn thread_delay(&self) -> &ThreadDelay {
+        self.config.thread_delay()
     }
 }
