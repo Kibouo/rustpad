@@ -1,4 +1,4 @@
-pub mod block_size;
+pub(super) mod block_size;
 
 use std::{
     fmt::Display,
@@ -10,20 +10,20 @@ use serde::{Deserialize, Serialize};
 use self::block_size::{BlockSize, BlockSizeTrait};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
-pub enum Block {
+pub(super) enum Block {
     Eight([u8; 8]),
     Sixteen([u8; 16]),
 }
 
 impl Block {
-    pub fn new(block_size: &BlockSize) -> Self {
+    pub(super) fn new(block_size: &BlockSize) -> Self {
         match block_size {
             BlockSize::Eight => Block::Eight([0; 8]),
             BlockSize::Sixteen => Block::Sixteen([0; 16]),
         }
     }
 
-    pub fn new_incremental_padding(block_size: &BlockSize) -> Self {
+    fn new_incremental_padding(block_size: &BlockSize) -> Self {
         match block_size {
             BlockSize::Eight => Block::Eight([8, 7, 6, 5, 4, 3, 2, 1]),
             BlockSize::Sixteen => {
@@ -32,7 +32,7 @@ impl Block {
         }
     }
 
-    pub fn set_byte(&mut self, index: usize, value: u8) -> &mut Self {
+    pub(super) fn set_byte(&mut self, index: usize, value: u8) -> &mut Self {
         match self {
             Block::Eight(data) => {
                 if index < 8 {
@@ -61,7 +61,7 @@ impl Block {
 
     /// Clone this block and adjusts bytes to produce the correct padding
     /// Due to xor's working, this cannot be done as a simple +1 in byte value. We must use xor's commutative property.
-    pub fn to_adjusted_for_padding(&self, pad_size: u8) -> Self {
+    pub(super) fn to_adjusted_for_padding(&self, pad_size: u8) -> Self {
         let mut adjusted_block = self.clone();
 
         for i in self.len() - (pad_size as usize)..self.len() {
@@ -72,11 +72,11 @@ impl Block {
         adjusted_block
     }
 
-    pub fn to_hex(&self) -> String {
+    pub(super) fn to_hex(&self) -> String {
         hex::encode(&**self)
     }
 
-    pub fn to_ascii(&self) -> String {
+    pub(super) fn to_ascii(&self) -> String {
         self.iter()
             .map(|byte_value| *byte_value as char)
             .map(|c| {
@@ -89,7 +89,7 @@ impl Block {
             .collect::<String>()
     }
 
-    pub fn to_intermediate(&self) -> Block {
+    pub(super) fn to_intermediate(&self) -> Block {
         self ^ &Block::new_incremental_padding(&self.block_size())
     }
 }

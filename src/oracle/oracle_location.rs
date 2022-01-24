@@ -5,13 +5,13 @@ use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, str::FromStr};
 
 #[derive(Debug, Clone)]
-pub enum OracleLocation {
+pub(crate) enum OracleLocation {
     Web(Url),
     Script(PathBuf),
 }
 
 #[derive(Serialize, Deserialize, Hash, PartialEq, Eq, Clone)]
-pub enum SerializableOracleLocation {
+pub(crate) enum SerializableOracleLocation {
     Web(String),
     Script(PathBuf),
 }

@@ -4,21 +4,21 @@ use tui::layout::{Constraint, Direction, Layout, Rect};
 #[derive(Getters)]
 pub(super) struct TuiLayout {
     // logic panel
-    #[get = "pub"]
+    #[get = "pub(super)"]
     original_cypher_text_area: Rect,
-    #[get = "pub"]
+    #[get = "pub(super)"]
     forged_block_area: Rect,
-    #[get = "pub"]
+    #[get = "pub(super)"]
     intermediate_block_area: Rect,
-    #[get = "pub"]
+    #[get = "pub(super)"]
     plain_text_area: Rect,
 
     // status panel
-    #[get = "pub"]
+    #[get = "pub(super)"]
     status_panel_area: Rect,
-    #[get = "pub"]
+    #[get = "pub(super)"]
     progress_bar_area: Rect,
-    #[get = "pub"]
+    #[get = "pub(super)"]
     logs_area: Rect,
 }
 

@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use getset::Getters;
 
 #[derive(Debug, Getters)]
-pub(super) struct ProxyCredentials {
+pub(crate) struct ProxyCredentials {
     #[get = "pub(super)"]
     username: String,
     #[get = "pub(super)"]

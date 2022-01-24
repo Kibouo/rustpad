@@ -6,7 +6,7 @@ const VERSION_TEMPLATE: &str = "<version>";
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Debug, Clone)]
-pub struct UserAgent(String);
+pub(crate) struct UserAgent(String);
 
 // `<version>` with actual crate version
 fn replace_version(user_agent: &str) -> String {

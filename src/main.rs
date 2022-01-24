@@ -1,6 +1,7 @@
 mod block;
 mod cache;
 mod calibrator;
+mod cli;
 mod config;
 mod cypher_text;
 mod divination;
@@ -17,27 +18,27 @@ use std::{
 
 use anyhow::{Context, Result};
 use async_std::task;
-use block::block_size::BlockSizeTrait;
-use cache::{cache_config::CacheConfig, Cache};
-use calibrator::calibration_response::CalibrationResponse;
+use clap::StructOpt;
 use crossbeam::thread;
-use cypher_text::encode::{AmountBlocksTrait, Encode};
-use divination::decryptor::Decryptor;
 use humantime::format_duration;
 use log::{error, info};
-use logging::init_logging;
-use other::config_thread_pool;
 
 use crate::{
+    block::block_size::BlockSizeTrait,
+    cache::{cache_config::CacheConfig, Cache},
+    calibrator::calibration_response::CalibrationResponse,
+    cli::Cli,
     config::Config,
-    divination::encryptor::Encryptor,
-    logging::LOG_TARGET,
+    cypher_text::encode::{AmountBlocksTrait, Encode},
+    divination::{decryptor::Decryptor, encryptor::Encryptor},
+    logging::{init_logging, LOG_TARGET},
     oracle::{
         oracle_location::OracleLocation,
         script::ScriptOracle,
         web::{calibrate_web::CalibrationWebOracle, WebOracle},
         Oracle,
     },
+    other::{config_thread_pool, generate_shell_autocomplete},
     tui::{
         ui_event::{UiControlEvent, UiDecryptionEvent, UiEncryptionEvent, UiEvent},
         Tui,
@@ -45,7 +46,12 @@ use crate::{
 };
 
 fn main() -> Result<()> {
-    let config = Config::parse()?;
+    let cli = Cli::parse();
+    if let cli::SubCommand::Setup(setup_cli) = cli.sub_command {
+        generate_shell_autocomplete(setup_cli.shell());
+        return Ok(());
+    }
+    let config = Config::try_from(cli)?;
 
     config_thread_pool(config.thread_count())?;
     init_logging(*config.log_level(), config.output_file().as_deref())?;

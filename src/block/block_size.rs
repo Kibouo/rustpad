@@ -6,12 +6,12 @@ use itertools::Itertools;
 use super::Block;
 
 #[derive(Clone, Copy, Debug)]
-pub enum BlockSize {
+pub(crate) enum BlockSize {
     Eight,
     Sixteen,
 }
 
-pub trait BlockSizeTrait {
+pub(crate) trait BlockSizeTrait {
     fn block_size(&self) -> BlockSize;
 }
 

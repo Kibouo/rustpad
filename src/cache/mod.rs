@@ -1,4 +1,4 @@
-pub mod cache_config;
+pub(super) mod cache_config;
 
 use std::{
     collections::HashMap,
@@ -15,14 +15,14 @@ use self::cache_config::CacheConfig;
 
 const CACHE_FILE_NAME: &str = "cache.bin";
 
-pub struct Cache {
+pub(super) struct Cache {
     cache_file: File,
     config: CacheConfig,
     data: HashMap<CacheConfig, HashMap<(Block, Block), Block>>,
 }
 
 impl Cache {
-    pub fn load_from_file(config: CacheConfig) -> Result<Self> {
+    pub(super) fn load_from_file(config: CacheConfig) -> Result<Self> {
         let mut cache_file = open_cache_file()?;
 
         let mut file_data = vec![];
@@ -47,7 +47,7 @@ impl Cache {
         })
     }
 
-    pub fn insert(&mut self, key: (Block, Block), value: Block) -> Result<()> {
+    pub(super) fn insert(&mut self, key: (Block, Block), value: Block) -> Result<()> {
         let _ = self
             .data
             .entry(self.config.clone())
@@ -67,7 +67,7 @@ impl Cache {
             .context("Cache could not be saved")
     }
 
-    pub fn get(&self, key: &(Block, Block)) -> Option<&Block> {
+    pub(super) fn get(&self, key: &(Block, Block)) -> Option<&Block> {
         self.data
             .get(&self.config)
             .and_then(|blocks_mapping| blocks_mapping.get(key))

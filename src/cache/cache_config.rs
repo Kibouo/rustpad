@@ -8,13 +8,13 @@ use crate::{
 /// State which defines the validity of a cache entry.
 /// In other words, all of the properties between the current and the cache's must match to allow loading of the associated values.
 #[derive(Serialize, Deserialize, Hash, PartialEq, Eq, Clone)]
-pub struct CacheConfig {
+pub(crate) struct CacheConfig {
     oracle_location: SerializableOracleLocation,
     calibration_response: Option<SerializableCalibrationResponse>,
 }
 
 impl CacheConfig {
-    pub fn new(
+    pub(crate) fn new(
         oracle_location: OracleLocation,
         calibration_response: Option<CalibrationResponse>,
     ) -> Self {

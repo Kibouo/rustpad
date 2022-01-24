@@ -11,13 +11,13 @@ use crate::{
 
 /// PKCS7 padded plain text.
 #[derive(Debug, Getters)]
-pub struct PlainText {
-    #[getset(get = "pub")]
+pub(super) struct PlainText {
+    #[getset(get = "pub(super)")]
     blocks: Vec<Block>,
 }
 
 impl PlainText {
-    pub fn new(input_data: &str, block_size: &BlockSize) -> Self {
+    pub(super) fn new(input_data: &str, block_size: &BlockSize) -> Self {
         let block_size = **block_size as usize;
         let padding_size = block_size - input_data.len() % block_size;
 

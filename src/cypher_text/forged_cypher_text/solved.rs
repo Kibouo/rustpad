@@ -8,27 +8,27 @@ use crate::{
 use super::ForgedCypherText;
 
 #[derive(Getters, Clone, Debug)]
-pub struct SolvedForgedCypherText<'a> {
-    #[getset(get = "pub")]
+pub(crate) struct SolvedForgedCypherText<'a> {
+    #[getset(get = "pub(crate)")]
     original_blocks: &'a [Block],
-    #[getset(get = "pub")]
+    #[getset(get = "pub(crate)")]
     url_encoded: bool,
-    #[getset(get = "pub")]
+    #[getset(get = "pub(crate)")]
     used_encoding: Encoding,
 
-    #[getset(get = "pub")]
+    #[getset(get = "pub(crate)")]
     forged_block_solution: Block,
 }
 
 impl<'a> SolvedForgedCypherText<'a> {
-    pub fn plain_text_solution(&self) -> String {
+    pub(crate) fn plain_text_solution(&self) -> String {
         let plain_text =
             &self.forged_block_solution.to_intermediate() ^ self.original_forged_block();
 
         plain_text.to_string()
     }
 
-    pub fn block_to_decrypt(&self) -> &Block {
+    pub(crate) fn block_to_decrypt(&self) -> &Block {
         &self.original_blocks[self.amount_blocks() - 1]
     }
 

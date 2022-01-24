@@ -254,6 +254,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "clap_complete"
+version = "3.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d044e9db8cd0f68191becdeb5246b7462e4cf0c069b19ae00d1bf3fa9889498d"
+dependencies = [
+ "clap",
+]
+
+[[package]]
 name = "clap_derive"
 version = "3.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1357,7 +1366,7 @@ dependencies = [
 
 [[package]]
 name = "rustpad"
-version = "1.7.3"
+version = "1.8.0"
 dependencies = [
  "anyhow",
  "async-scoped",
@@ -1365,6 +1374,7 @@ dependencies = [
  "atty",
  "base64",
  "clap",
+ "clap_complete",
  "crossbeam",
  "crossterm 0.22.1",
  "dirs",

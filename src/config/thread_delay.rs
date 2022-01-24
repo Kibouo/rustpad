@@ -3,7 +3,7 @@ use std::{fmt::Display, ops::Deref, str::FromStr, time::Duration};
 use anyhow::{Context, Result};
 
 #[derive(Debug, Clone)]
-pub struct ThreadDelay(Duration);
+pub(crate) struct ThreadDelay(Duration);
 
 impl Default for ThreadDelay {
     fn default() -> Self {

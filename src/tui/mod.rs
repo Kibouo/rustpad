@@ -1,5 +1,5 @@
 mod layout;
-pub mod ui_event;
+pub(super) mod ui_event;
 mod widgets;
 
 use std::{

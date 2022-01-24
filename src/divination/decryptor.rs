@@ -19,7 +19,7 @@ use crate::{
 };
 
 /// Manages the oracle attack (decryption) on a high level.
-pub struct Decryptor<'a, U>
+pub(crate) struct Decryptor<'a, U>
 where
     U: FnMut(UiEvent) + Sync + Send + Clone,
 {
@@ -31,7 +31,7 @@ impl<'a, U> Decryptor<'a, U>
 where
     U: FnMut(UiEvent) + Sync + Send + Clone,
 {
-    pub fn new_decryption_only(update_ui_callback: U, cypher_text: &'a CypherText) -> Self {
+    pub(crate) fn new_decryption_only(update_ui_callback: U, cypher_text: &'a CypherText) -> Self {
         Self::new(
             update_ui_callback,
             cypher_text,
@@ -39,7 +39,7 @@ where
             1,
         )
     }
-    pub fn new_encryption(update_ui_callback: U, cypher_text: &'a CypherText) -> Self {
+    pub(crate) fn new_encryption(update_ui_callback: U, cypher_text: &'a CypherText) -> Self {
         Self::new(
             update_ui_callback,
             cypher_text,
@@ -47,7 +47,7 @@ where
         )
     }
 
-    pub fn web_calibrator(&self) -> Calibrator {
+    pub(crate) fn web_calibrator(&self) -> Calibrator {
         // can't panic as the constructor checks for at least 1 forged cypher text being created
         Calibrator::new(self.forged_cypher_texts[0].clone())
     }
@@ -78,7 +78,7 @@ where
     }
 
     /// Actually performs the oracle attack to decrypt each block available through `ForgedCypherText`s.
-    pub fn decrypt_blocks(
+    pub(crate) fn decrypt_blocks(
         &self,
         oracle: &impl Oracle,
         cache: Arc<Mutex<Option<Cache>>>,

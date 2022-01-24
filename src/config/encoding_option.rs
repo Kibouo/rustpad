@@ -4,7 +4,7 @@ use anyhow::{anyhow, Result};
 use itertools::Itertools;
 
 #[derive(Debug, Clone)]
-pub enum EncodingOption {
+pub(crate) enum EncodingOption {
     Auto,
     Hex,
     Base64,

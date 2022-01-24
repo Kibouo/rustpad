@@ -3,7 +3,7 @@ use std::{fmt::Display, ops::Deref, str::FromStr};
 use anyhow::{anyhow, Context, Result};
 
 #[derive(Debug, Clone)]
-pub struct ThreadCount(usize);
+pub(crate) struct ThreadCount(usize);
 
 impl Default for ThreadCount {
     fn default() -> Self {

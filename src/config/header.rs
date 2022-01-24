@@ -4,10 +4,10 @@ use anyhow::{Context, Result};
 use getset::Getters;
 
 #[derive(Debug, Clone, Getters)]
-pub struct Header {
-    #[get = "pub"]
+pub(crate) struct Header {
+    #[get = "pub(crate)"]
     name: String,
-    #[get = "pub"]
+    #[get = "pub(crate)"]
     value: String,
 }
 

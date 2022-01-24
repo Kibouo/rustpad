@@ -9,19 +9,19 @@ use serde::{Deserialize, Serialize};
 
 /// Contains the parts of web response which are relevant to deciding whether the web oracle decided the padding was correct or not.
 #[derive(Hash, Eq, PartialEq, Debug, Clone, Getters)]
-pub struct CalibrationResponse {
-    #[getset(get = "pub")]
+pub(crate) struct CalibrationResponse {
+    #[getset(get = "pub(super)")]
     status: StatusCode,
-    #[getset(get = "pub")]
+    #[getset(get = "pub(super)")]
     location: Option<HeaderValue>,
     #[getset(get)] // private
     content: Option<String>,
-    #[getset(get = "pub")]
+    #[getset(get = "pub(super)")]
     content_length: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize, Hash, PartialEq, Eq, Clone)]
-pub struct SerializableCalibrationResponse {
+pub(crate) struct SerializableCalibrationResponse {
     status: u16,
     location: Option<Vec<u8>>,
     content: Option<String>,
@@ -29,7 +29,7 @@ pub struct SerializableCalibrationResponse {
 }
 
 impl CalibrationResponse {
-    pub fn from_response(response: Response, consider_body: bool) -> Result<Self> {
+    pub(crate) fn from_response(response: Response, consider_body: bool) -> Result<Self> {
         let status = response.status();
         let location = response.headers().get(header::LOCATION).cloned();
         let content_length = if consider_body {

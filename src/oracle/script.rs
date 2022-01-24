@@ -6,13 +6,13 @@ use std::{
 use anyhow::{anyhow, Context, Result};
 
 use crate::{
-    config::{script_config::ScriptConfig, thread_delay::ThreadDelay, SubConfig},
+    config::{thread_delay::ThreadDelay, ScriptConfig, SubConfig},
     cypher_text::encode::Encode,
 };
 
 use super::{oracle_location::OracleLocation, Oracle};
 
-pub struct ScriptOracle {
+pub(crate) struct ScriptOracle {
     path: PathBuf,
     config: ScriptConfig,
 }

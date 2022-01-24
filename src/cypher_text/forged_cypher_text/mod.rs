@@ -1,4 +1,4 @@
-pub mod solved;
+pub(crate) mod solved;
 
 use getset::Getters;
 
@@ -8,25 +8,28 @@ use self::solved::SolvedForgedCypherText;
 
 use super::{AmountBlocksTrait, Block, CypherText, Encode, Encoding};
 
-pub enum ByteLockResult<'a> {
+pub(crate) enum ByteLockResult<'a> {
     BytesLeft(ForgedCypherText<'a>),
     Solved(SolvedForgedCypherText<'a>),
 }
 
 #[derive(Debug, Clone, Getters)]
-pub struct ForgedCypherText<'a> {
+pub(crate) struct ForgedCypherText<'a> {
     original_blocks: &'a [Block],
     url_encoded: bool,
     used_encoding: Encoding,
 
     current_byte_idx: u8,
-    #[getset(get = "pub")]
+    #[getset(get = "pub(crate)")]
     forged_block_wip: Block,
     forged_block_solution: Block,
 }
 
 impl<'a> ForgedCypherText<'a> {
-    pub fn from_cypher_text(cypher_text: &'a CypherText, block_to_decrypt_idx: usize) -> Self {
+    pub(crate) fn from_cypher_text(
+        cypher_text: &'a CypherText,
+        block_to_decrypt_idx: usize,
+    ) -> Self {
         if block_to_decrypt_idx > cypher_text.amount_blocks() - 1 {
             panic!(
                 "Tried to create ForgedCypherText to decrypt block {}, but only {} blocks exist in the original cypher text",
@@ -50,7 +53,7 @@ impl<'a> ForgedCypherText<'a> {
         forged_cypher_text
     }
 
-    pub fn from_slice(
+    pub(crate) fn from_slice(
         original_blocks: &'a [Block],
         block_size: BlockSize,
         url_encoded: bool,
@@ -66,7 +69,7 @@ impl<'a> ForgedCypherText<'a> {
         }
     }
 
-    pub fn set_current_byte(&mut self, value: u8) -> &mut Self {
+    pub(crate) fn set_current_byte(&mut self, value: u8) -> &mut Self {
         self.forged_block_wip
             .set_byte(self.current_byte_idx as usize, value);
 
@@ -74,7 +77,7 @@ impl<'a> ForgedCypherText<'a> {
     }
 
     /// Indicate that the current byte's value was found. Advance and save the solution.
-    pub fn lock_byte(mut self) -> ByteLockResult<'a> {
+    pub(crate) fn lock_byte(mut self) -> ByteLockResult<'a> {
         let idx = self.current_byte_idx;
 
         // locking a byte means it's supposedly correct
@@ -89,11 +92,11 @@ impl<'a> ForgedCypherText<'a> {
         }
     }
 
-    pub fn bytes_answered(&self) -> u8 {
+    pub(crate) fn bytes_answered(&self) -> u8 {
         (*self.block_size() - 1) - self.current_byte_idx
     }
 
-    pub fn as_cache_key(&self) -> (Block, Block) {
+    pub(crate) fn as_cache_key(&self) -> (Block, Block) {
         // for decryption to work, at least 2 block must exist. CypherText should have already checked this
         (
             self.blocks()[self.amount_blocks() - 2].clone(),

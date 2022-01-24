@@ -1,4 +1,4 @@
-pub mod calibrate_web;
+pub(crate) mod calibrate_web;
 
 use std::{collections::HashMap, str::FromStr};
 
@@ -13,19 +13,19 @@ use reqwest::{
 
 use crate::{
     calibrator::calibration_response::CalibrationResponse,
-    config::{thread_delay::ThreadDelay, web_config::WebConfig, SubConfig},
+    config::{thread_delay::ThreadDelay, SubConfig, WebConfig},
     cypher_text::encode::Encode,
 };
 
 use super::{oracle_location::OracleLocation, Oracle};
 
 #[derive(Setters)]
-pub struct WebOracle {
+pub(crate) struct WebOracle {
     url: Url,
     config: WebConfig,
     web_client: Client,
     keyword_locations: Vec<KeywordLocation>,
-    #[getset(set = "pub")]
+    #[getset(set = "pub(crate)")]
     padding_error_response: Option<CalibrationResponse>,
 }
 

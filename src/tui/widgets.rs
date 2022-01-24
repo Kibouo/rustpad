@@ -13,18 +13,18 @@ use super::{AppState, UiState};
 
 #[derive(Getters)]
 pub(super) struct Widgets {
-    pub outer_border: Block<'static>,
+    pub(super) outer_border: Block<'static>,
 
     // logic panel
-    pub original_cypher_text_view: Table<'static>,
-    pub forged_block_view: Table<'static>,
-    pub intermediate_block_view: Table<'static>,
-    pub plain_text_view: Table<'static>,
+    pub(super) original_cypher_text_view: Table<'static>,
+    pub(super) forged_block_view: Table<'static>,
+    pub(super) intermediate_block_view: Table<'static>,
+    pub(super) plain_text_view: Table<'static>,
 
     // status panel
-    pub status_panel_border: Block<'static>,
-    pub progress_bar: Gauge<'static>,
-    pub logs_view: TuiLoggerWidget<'static>,
+    pub(super) status_panel_border: Block<'static>,
+    pub(super) progress_bar: Gauge<'static>,
+    pub(super) logs_view: TuiLoggerWidget<'static>,
 }
 
 impl Widgets {

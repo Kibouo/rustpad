@@ -1,14 +1,14 @@
 use crate::block::Block;
 
 #[derive(Debug)]
-pub enum UiEvent {
+pub(crate) enum UiEvent {
     Decryption(UiDecryptionEvent),
     Encryption(UiEncryptionEvent),
     Control(UiControlEvent),
 }
 
 #[derive(Debug)]
-pub enum UiDecryptionEvent {
+pub(crate) enum UiDecryptionEvent {
     // original_cypher_text_blocks
     InitDecryption(Vec<Block>),
     // (forged_block, cypher_text_block_idx)
@@ -19,7 +19,7 @@ pub enum UiDecryptionEvent {
 }
 
 #[derive(Debug)]
-pub enum UiEncryptionEvent {
+pub(crate) enum UiEncryptionEvent {
     // (plain_text_blocks, init_cypher_text)
     InitEncryption(Vec<Block>, Block),
     // (forged_block, cypher_text_block_idx)
@@ -30,7 +30,7 @@ pub enum UiEncryptionEvent {
 }
 
 #[derive(Debug)]
-pub enum UiControlEvent {
+pub(crate) enum UiControlEvent {
     IndicateWork(usize),
     ProgressUpdate(usize), // inform UI that x bytes are solved
     PrintAfterExit(String),

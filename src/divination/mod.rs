@@ -1,3 +1,6 @@
+pub(super) mod decryptor;
+pub(super) mod encryptor;
+
 use std::{
     sync::{Arc, Mutex},
     thread,
@@ -19,9 +22,6 @@ use crate::{
     oracle::Oracle,
     other::{RETRY_DELAY_MS, RETRY_MAX_ATTEMPTS},
 };
-
-pub mod decryptor;
-pub mod encryptor;
 
 fn solve_block<'a, W, P>(
     oracle: &impl Oracle,

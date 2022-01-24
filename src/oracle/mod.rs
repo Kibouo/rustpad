@@ -1,3 +1,7 @@
+pub(super) mod oracle_location;
+pub(super) mod script;
+pub(super) mod web;
+
 use anyhow::Result;
 
 use crate::{
@@ -7,11 +11,7 @@ use crate::{
 
 use self::oracle_location::OracleLocation;
 
-pub mod oracle_location;
-pub mod script;
-pub mod web;
-
-pub trait Oracle: Sync {
+pub(super) trait Oracle: Sync {
     /// Constructor
     fn visit(oracle_location: &OracleLocation, oracle_config: &SubConfig) -> Result<Self>
     where

@@ -19,7 +19,7 @@
 | <p align="center">Arch linux</p>                                                                                                                                             | <p align="center">Kali / Debian</p>                                                                                                                         | <p align="center">Others</p>                                                                                                                                   |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `yay -Syu rustpad`                                                                                                                                                           | `apt install ./rustpad.deb`                                                                                                                                 | `cargo install rustpad`                                                                                                                                        |
-| <p align="center"><a href="https://aur.archlinux.org/packages/rustpad-bin/"><img alt="aur shield" src="https://img.shields.io:/aur/version/rustpad-bin?color=blue"/></a></p> | <p align="center"><a href="https://github.com/Kibouo/rustpad/releases"><img alt="deb shield" src="https://img.shields.io/badge/deb-v1.7.3-purple"/></a></p> | <p align="center"><a href="https://crates.io/crates/rustpad"><img alt="crates.io shield" src="https://img.shields.io:/crates/v/rustpad?color=yellow"/></a></p> |
+| <p align="center"><a href="https://aur.archlinux.org/packages/rustpad-bin/"><img alt="aur shield" src="https://img.shields.io:/aur/version/rustpad-bin?color=blue"/></a></p> | <p align="center"><a href="https://github.com/Kibouo/rustpad/releases"><img alt="deb shield" src="https://img.shields.io/badge/deb-v1.8.0-purple"/></a></p> | <p align="center"><a href="https://crates.io/crates/rustpad"><img alt="crates.io shield" src="https://img.shields.io:/crates/v/rustpad?color=yellow"/></a></p> |
 
 ## 🔪🏛️ A multi-threaded what now?
 `rustpad` is a multi-threaded successor to the classic [`padbuster`](https://github.com/AonCyberLabs/PadBuster), written in Rust. It abuses a [Padding Oracle vulnerability](https://en.wikipedia.org/wiki/Padding_oracle_attack) to decrypt any cypher text or encrypt arbitrary plain text **without knowing the encryption key**!
@@ -34,73 +34,18 @@
 - ... and *Script*-based oracles. For when you need just that extra bit of control.
 - Automated calibration of web oracle's (in)correct padding response
 - Progress bar and automated retries
+- Tab auto-completion
+- Block-level caching
 - Smart detection of cypher text encoding, supporting: `hex`, `base64`, `base64url`
 - No IV support
 - Written in purely safe Rust, making sure you don't encounter nasty crashes
 
 ## 🗒️🤔 Usage
 Using `rustpad` to attack a padding oracle is easy. It requires only 4 pieces of information to start:
+- type of oracle (`web`/`script`, see below)
 - target oracle (`--oracle`)
 - cypher text to decrypt (`--decrypt`)
 - block size (`--block-size`)
-- type of oracle (`web`/`script`, see below)
-
-```log
-; rustpad --help
-rustpad
-Multi-threaded Padding Oracle attacks against any service.
-
-USAGE:
-    rustpad [OPTIONS] --block-size <block_size> --decrypt <decrypt> --oracle <oracle> <SUBCOMMAND>
-
-OPTIONS:
-    -B, --block-size <block_size>
-            Block size used by the cypher [possible values: 8, 16]
-
-    -D, --decrypt <decrypt>
-            Original cypher text, received from the target service, which is to be decrypted
-
-        --delay <delay>
-            Delay between requests within a thread, in milliseconds [default: 0]
-
-    -e, --encoding <encoding>
-            Specify encoding used by the oracle to encode the cypher text [default: auto]  [possible values: auto, base64, base64url, hex]
-
-    -E, --encrypt <encrypt>
-            Plain text to encrypt. Encryption mode requires a cypher text to gather necessary data
-
-    -h, --help
-            Prints help information
-
-        --no-cache
-            Disable reading and writing to the cache file
-
-    -n, --no-iv
-            Cypher text does not include an Initialisation Vector
-
-        --no-url-encode
-            Disable URL encoding and decoding of cypher text
-
-    -O, --oracle <oracle>
-            The oracle to question with forged cypher texts. This can be a URL or a shell script.
-            See the subcommands `web --help` and `script --help` respectively for further help.
-    -o, --output <output>
-            File path to which log output will be written
-
-    -t, --threads <threads>
-            Amount of threads in the thread pool
-
-    -V, --version
-            Prints version information
-
-    -v, --verbose
-            Increase verbosity of logging
-
-
-SUBCOMMANDS:
-    web       Question a web-based oracle
-    script    Question a script-based oracle
-```
 
 ### Web mode
 Web mode specifies that the oracle is located on the web. In other words, the oracle is a web server with a URL.
@@ -109,70 +54,106 @@ For a padding oracle attack to succeed, an oracle must say so if a cypher text w
 
 ```log
 ; rustpad web --help
-rustpad-web
+rustpad-web 1.8.0
 Question a web-based oracle
 
 USAGE:
-    rustpad --block-size <block_size> --decrypt <decrypt> --oracle <oracle> web [OPTIONS]
+    rustpad {web, --web, -W} [OPTIONS] --oracle <ORACLE_LOCATION> --block-size <BLOCK_SIZE> --decrypt <CYPHER_TEXT>
 
 OPTIONS:
+    -A, --user-agent <USER_AGENT>
+            User-agent to identify with
+
+            [default: rustpad/1.8.0]
+
+    -B, --block-size <BLOCK_SIZE>
+            Block size used by the cypher
+
+            [options: 8, 16]
+
     -c, --consider-body
             Consider the response body and content length when determining the web oracle's response to (in)correct padding
 
-    -d, --data <data>
+    -d, --data <POST_DATA>
             Data to send in a POST request
 
-        --delay <delay>
-            Delay between requests within a thread, in milliseconds [default: 0]
+    -D, --decrypt <CYPHER_TEXT>
+            Original cypher text, received from the target service, which is to be decrypted
 
-    -e, --encoding <encoding>
-            Specify encoding used by the oracle to encode the cypher text [default: auto]  [possible values: auto, base64, base64url, hex]
+        --delay <THREAD_DELAY>
+            Delay between requests within a thread, in milliseconds
+
+            [default: 0]
+
+    -e, --encoding <ENCODING>
+            Specify encoding used by the oracle to encode the cypher text
+
+            [options: auto, hex, base64, base64url]
+
+            [default: auto]
+
+    -E, --encrypt <PLAIN_TEXT>
+            Plain text to encrypt. Note: encryption mode requires a cypher text to gather necessary data
 
     -h, --help
-            Prints help information
+            Print help information
 
-    -H, --header <header>...
+    -H, --header <HEADER>
             HTTP header to send
+
+            [format: <name>:<value>]
 
     -k, --insecure
             Disable TLS certificate validation
 
-    -K, --keyword <keyword>
-            Keyword indicating the location of the cypher text in the HTTP request. It is replaced by the cypher text's value at runtime [default: CTEXT]
+    -K, --keyword <KEYWORD>
+            Keyword indicating the location of the cypher text in the HTTP request. It is replaced by the cypher text's value at runtime
 
-        --no-cache
-            Disable reading and writing to the cache file
+            [default: CTEXT]
 
     -n, --no-iv
             Cypher text does not include an Initialisation Vector
 
+        --no-cache
+            Disable reading and writing to the cache file
+
         --no-url-encode
             Disable URL encoding and decoding of cypher text
 
-    -o, --output <output>
+    -o, --output <LOG_FILE>
             File path to which log output will be written
 
-    -x, --proxy <proxy>
-            Proxy server to send web requests over. Supports HTTP(S) and SOCKS5
+    -O, --oracle <ORACLE_LOCATION>
+            The oracle to question with forged cypher texts. This can be a URL or a shell script.
 
-        --proxy-credentials <proxy_credentials>
-            Credentials to authenticate against the proxy server with [format: <user>:<pass>]
+            See the subcommands `web --help` and `script --help` respectively for further help.
+
+        --proxy-credentials <PROXY_CREDENTIALS>
+            Credentials to authenticate against the proxy server with
+
+            [format: <user>:<pass>]
 
     -r, --redirect
-            Follow 302 Redirects
+            Follow HTTP Redirects
 
-    -t, --threads <threads>
+    -t, --threads <THREAD_COUNT>
             Amount of threads in the thread pool
 
-    -T, --timeout <timeout>
-            Web request timeout in seconds [default: 10]
+            [default: 64]
 
-    -A, --user-agent <user_agent>
-            User-agent to identify with [default: rustpad/<version>]
+    -T, --timeout <REQUEST_TIMEOUT>
+            Web request timeout in seconds
+
+            [default: 10]
 
     -v, --verbose
             Increase verbosity of logging
 
+    -V, --version
+            Print version information
+
+    -x, --proxy <PROXY_URL>
+            Proxy server to send web requests over. Supports HTTP(S) and SOCKS5
 
 Indicate the cypher text's location! See `--keyword` for clarification.
 ```
@@ -184,46 +165,80 @@ Scripts allow you to run attacks against local oracles or more exotic services. 
 
 ```log
 ; rustpad script --help
-rustpad-script
+rustpad-script 1.8.0
 Question a script-based oracle
 
 USAGE:
-    rustpad --block-size <block_size> --decrypt <decrypt> --oracle <oracle> script [OPTIONS]
+    rustpad {script, --script, -S} [OPTIONS] --oracle <ORACLE_LOCATION> --block-size <BLOCK_SIZE> --decrypt <CYPHER_TEXT>
 
 OPTIONS:
-        --delay <delay>
-            Delay between requests within a thread, in milliseconds [default: 0]
+    -B, --block-size <BLOCK_SIZE>
+            Block size used by the cypher
 
-    -e, --encoding <encoding>
-            Specify encoding used by the oracle to encode the cypher text [default: auto]  [possible values: auto, base64, base64url, hex]
+            [options: 8, 16]
+
+    -D, --decrypt <CYPHER_TEXT>
+            Original cypher text, received from the target service, which is to be decrypted
+
+        --delay <THREAD_DELAY>
+            Delay between requests within a thread, in milliseconds
+
+            [default: 0]
+
+    -e, --encoding <ENCODING>
+            Specify encoding used by the oracle to encode the cypher text
+
+            [options: auto, hex, base64, base64url]
+
+            [default: auto]
+
+    -E, --encrypt <PLAIN_TEXT>
+            Plain text to encrypt. Note: encryption mode requires a cypher text to gather necessary data
 
     -h, --help
-            Prints help information
-
-        --no-cache
-            Disable reading and writing to the cache file
+            Print help information
 
     -n, --no-iv
             Cypher text does not include an Initialisation Vector
 
+        --no-cache
+            Disable reading and writing to the cache file
+
         --no-url-encode
             Disable URL encoding and decoding of cypher text
 
-    -o, --output <output>
+    -o, --output <LOG_FILE>
             File path to which log output will be written
 
-    -t, --threads <threads>
+    -O, --oracle <ORACLE_LOCATION>
+            The oracle to question with forged cypher texts. This can be a URL or a shell script.
+
+            See the subcommands `web --help` and `script --help` respectively for further help.
+
+    -t, --threads <THREAD_COUNT>
             Amount of threads in the thread pool
+
+            [default: 64]
 
     -v, --verbose
             Increase verbosity of logging
 
+    -V, --version
+            Print version information
 
-Script must respond with exit code 0 for correct padding, and any other code otherwise. Cypher text is passed as the 1st argument.
+Script must respond with exit code 0 for correct padding, and any other code otherwise. Cypher text is
+passed as the 1st argument.
 ```
 
+### Shell auto-completion
+`rustpad` can generate tab auto-completion scripts for most popular shells:
+```sh
+rustpad setup <shell>
+```
+
+Consult your shell's documentation on what to do with the generated script.
+
 ## 🕥💤 Coming soon
-- [ ] tab auto-complete
 - [ ] smarter URL parsing
 - [ ] advanced calibration: response text should contain "x", time-based
 - [ ] automated block size detection

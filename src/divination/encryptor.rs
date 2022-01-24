@@ -19,7 +19,7 @@ use crate::{
 };
 
 /// Manages the oracle attack (encryption) on a high level.
-pub struct Encryptor<'a, U>
+pub(crate) struct Encryptor<'a, U>
 where
     U: FnMut(UiEvent) + Sync + Send + Clone,
 {
@@ -32,7 +32,10 @@ impl<'a, U> Encryptor<'a, U>
 where
     U: FnMut(UiEvent) + Sync + Send + Clone,
 {
-    pub fn new(update_ui_callback: U, initial_block_solution: SolvedForgedCypherText<'a>) -> Self {
+    pub(crate) fn new(
+        update_ui_callback: U,
+        initial_block_solution: SolvedForgedCypherText<'a>,
+    ) -> Self {
         debug!(target: LOG_TARGET, "Preparing to encrypt plain text");
 
         Self {
@@ -42,7 +45,7 @@ where
     }
 
     // encryption looks for the intermediate of the cypher text block, which is then xor-ed with the plain text block to create the cypher text block to be prepended.
-    pub fn encrypt_plain_text(
+    pub(crate) fn encrypt_plain_text(
         &self,
         plain_text: &PlainText,
         oracle: &impl Oracle,

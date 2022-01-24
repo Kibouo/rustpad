@@ -1,4 +1,4 @@
-pub mod calibration_response;
+pub(super) mod calibration_response;
 
 use calibration_response::CalibrationResponse;
 
@@ -17,7 +17,7 @@ use crate::{
     other::{RETRY_DELAY_MS, RETRY_MAX_ATTEMPTS},
 };
 
-pub struct Calibrator<'a> {
+pub(super) struct Calibrator<'a> {
     forged_cypher_text: ForgedCypherText<'a>,
 }
 

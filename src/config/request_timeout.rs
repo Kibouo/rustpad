@@ -3,7 +3,7 @@ use std::{fmt::Display, ops::Deref, str::FromStr, time::Duration};
 use anyhow::{Context, Result};
 
 #[derive(Debug, Clone)]
-pub struct RequestTimeout(Duration);
+pub(crate) struct RequestTimeout(Duration);
 
 impl Default for RequestTimeout {
     fn default() -> Self {

@@ -1,5 +1,5 @@
-pub mod encode;
-pub mod forged_cypher_text;
+pub(super) mod encode;
+pub(super) mod forged_cypher_text;
 
 use crate::{
     block::{block_size::BlockSizeTrait, Block},
@@ -14,14 +14,14 @@ use crate::block::block_size::BlockSize;
 use self::encode::{AmountBlocksTrait, Encode, Encoding};
 
 #[derive(Debug, Clone)]
-pub struct CypherText {
+pub(super) struct CypherText {
     blocks: Vec<Block>,
     url_encoded: bool,
     used_encoding: Encoding,
 }
 
 impl CypherText {
-    pub fn parse(
+    pub(super) fn parse(
         input_data: &str,
         block_size: &BlockSize,
         no_iv: bool,
@@ -57,7 +57,7 @@ impl CypherText {
         })
     }
 
-    pub fn from_iter<'a>(
+    pub(super) fn from_iter<'a>(
         blocks: impl IntoIterator<Item = &'a Block>,
         url_encoded: bool,
         used_encoding: Encoding,
