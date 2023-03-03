@@ -41,7 +41,7 @@ pub(super) enum SubCommand {
         short_flag = 'W',
         long_flag = "web"
     )]
-    Web(WebCli),
+    Web(Box<WebCli>),
     #[clap(
         about = "Question a script-based oracle",
         long_about = None,
@@ -50,14 +50,14 @@ pub(super) enum SubCommand {
         short_flag = 'S',
         long_flag = "script"
     )]
-    Script(ScriptCli),
+    Script(Box<ScriptCli>),
     #[clap(
         about = "Setup shell auto-complete",
         long_about = "Generate a tab auto-completion script for the given shell. Consult your shell's documentation on what to do with the generated script",
         display_order = 3,
         long_flag = "setup"
     )]
-    Setup(SetupCli),
+    Setup(Box<SetupCli>),
 }
 
 // These "global" CLI options are not marked as global via `clap`, and instead included in every relevant sub-command.

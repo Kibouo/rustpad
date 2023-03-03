@@ -3,7 +3,7 @@ pub(super) mod cache_config;
 use std::{
     collections::HashMap,
     fs::{create_dir_all, File, OpenOptions},
-    io::{Read, Seek, SeekFrom, Write},
+    io::{Read, Seek, Write},
     path::PathBuf,
 };
 
@@ -60,7 +60,7 @@ impl Cache {
             .set_len(0)
             .context("Cache file emptying failed")?;
         self.cache_file
-            .seek(SeekFrom::Start(0))
+            .rewind()
             .context("Cache file seek-to-start failed")?;
         self.cache_file
             .write_all(&rmp_serde::to_vec(&self.data).context("Cache data serialization failed")?)

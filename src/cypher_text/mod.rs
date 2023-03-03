@@ -77,8 +77,7 @@ impl<'a> Encode<'a> for CypherText {
         let raw_bytes: Vec<u8> = self
             .blocks()
             .iter()
-            .map(|block| &**block)
-            .flatten()
+            .flat_map(|block| &**block)
             // blocks are scattered through memory, gotta collect them
             .cloned()
             .collect();
@@ -123,15 +122,15 @@ impl AmountBlocksTrait for CypherText {
 
 fn decode(input_data: &str, encoding: &EncodingOption) -> Result<(Vec<u8>, Encoding)> {
     fn auto_decode(input_data: &str) -> Result<(Vec<u8>, Encoding)> {
-        if let Ok(decoded_data) = hex::decode(&*input_data) {
+        if let Ok(decoded_data) = hex::decode(input_data) {
             return Ok((decoded_data, Encoding::Hex));
         }
 
-        if let Ok(decoded_data) = base64::decode_config(&*input_data, base64::STANDARD) {
+        if let Ok(decoded_data) = base64::decode_config(input_data, base64::STANDARD) {
             return Ok((decoded_data, Encoding::Base64));
         }
 
-        if let Ok(decoded_data) = base64::decode_config(&*input_data, base64::URL_SAFE) {
+        if let Ok(decoded_data) = base64::decode_config(input_data, base64::URL_SAFE) {
             return Ok((decoded_data, Encoding::Base64Url));
         }
 
@@ -144,11 +143,11 @@ fn decode(input_data: &str, encoding: &EncodingOption) -> Result<(Vec<u8>, Encod
     fn forced_decode(input_data: &str, encoding: Encoding) -> Result<(Vec<u8>, Encoding)> {
         let decoded_data = match encoding {
             Encoding::Hex => {
-                hex::decode(&*input_data).context(format!("`{}` is not valid hex", input_data))
+                hex::decode(input_data).context(format!("`{}` is not valid hex", input_data))
             }
-            Encoding::Base64 => base64::decode_config(&*input_data, base64::STANDARD)
+            Encoding::Base64 => base64::decode_config(input_data, base64::STANDARD)
                 .context(format!("`{}` is not valid base64", input_data)),
-            Encoding::Base64Url => base64::decode_config(&*input_data, base64::URL_SAFE)
+            Encoding::Base64Url => base64::decode_config(input_data, base64::URL_SAFE)
                 .context(format!("`{}` is not valid base64 (URL safe)", input_data)),
         }
         .context("Invalid encoding for cypher text specified")?;

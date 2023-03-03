@@ -116,14 +116,13 @@ impl<'a> Encode<'a> for ForgedCypherText<'a> {
         // PKCS5/7 padding's value is the same as its length. So the desired padding when testing for the last byte is 0x01. But when testing the 2nd last byte, the last byte must be 0x02. This means that when moving on to the next byte (right to left), all of the previous bytes' solutions must be adjusted.
         let forged_block_with_padding_adjusted = self
             .forged_block_wip
-            .to_adjusted_for_padding(*self.block_size() - self.current_byte_idx as u8);
+            .to_adjusted_for_padding(*self.block_size() - self.current_byte_idx);
 
         let raw_bytes: Vec<u8> = prefix_blocks
             .iter()
             .chain([&forged_block_with_padding_adjusted].into_iter())
             .chain([to_decrypt_block].into_iter())
-            .map(|block| &**block)
-            .flatten()
+            .flat_map(|block| &**block)
             // blocks are scattered through memory, gotta collect them
             .cloned()
             .collect();

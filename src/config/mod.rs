@@ -71,11 +71,11 @@ impl TryFrom<Cli> for Config {
         match cli.sub_command {
             SubCommand::Web(web_cli) => Ok(Self {
                 global_config: GlobalConfig::try_from(web_cli.global_options())?,
-                sub_config: SubConfig::Web(WebConfig::try_from(web_cli)?),
+                sub_config: SubConfig::Web(WebConfig::try_from(*web_cli)?),
             }),
             SubCommand::Script(script_cli) => Ok(Self {
                 global_config: GlobalConfig::try_from(script_cli.global_options())?,
-                sub_config: SubConfig::Script(ScriptConfig::try_from(script_cli)?),
+                sub_config: SubConfig::Script(ScriptConfig::try_from(*script_cli)?),
             }),
             _ => unreachable!(
                 "Attempted to convert sub-command {:?} into a config.",
