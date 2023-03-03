@@ -18,7 +18,7 @@ jobs:
     name: Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -32,7 +32,7 @@ jobs:
     name: Rustfmt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -48,7 +48,7 @@ jobs:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
@@ -81,7 +81,7 @@ jobs:
             upx_args: -9
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -95,7 +95,7 @@ jobs:
           files: target/${{ matrix.target }}/release/${{ env.PROJECT_NAME_UNDERSCORE }}${{ matrix.extension }}
           args: ${{ matrix.upx_args }}
       - name: 'Upload Artifact'
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: ${{ env.PROJECT_NAME_UNDERSCORE }}
           path: target/${{ matrix.target }}/release/${{ env.PROJECT_NAME_UNDERSCORE }}${{ matrix.extension }}
