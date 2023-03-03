@@ -26,7 +26,7 @@ impl From<u8> for BlockSize {
         match data {
             8 => Self::Eight,
             16 => Self::Sixteen,
-            _ => unreachable!(format!("Invalid block size: {}", data)),
+            _ => unreachable!("{}", format!("Invalid block size: {}", data)),
         }
     }
 }
@@ -36,7 +36,7 @@ impl From<usize> for BlockSize {
         match data {
             8 => Self::Eight,
             16 => Self::Sixteen,
-            _ => unreachable!(format!("Invalid block size: {}", data)),
+            _ => unreachable!("{}", format!("Invalid block size: {}", data)),
         }
     }
 }
