@@ -7,6 +7,12 @@ license = "GPL-3.0"
 repository = "https://github.com/Kibouo/rustpad/"
 edition = "2021"
 
+[profile.release]
+# cherry-picked size optimisations from https://github.com/johnthagen/min-sized-rust
+strip = true
+lto = true
+codegen-units = 1
+
 [dependencies]
 clap = { version = "3.0", default-features = true, features = ["derive", "wrap_help"] }
 clap_complete = "3.0"

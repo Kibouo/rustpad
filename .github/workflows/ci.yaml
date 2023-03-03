@@ -73,10 +73,12 @@ jobs:
             os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             extension:
+            upx_args: --best --lzma
           - name: x64-windows
             os: windows-latest
             target: x86_64-pc-windows-msvc
             extension: .exe
+            upx_args: -9
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
@@ -87,6 +89,11 @@ jobs:
           override: true
       - name: Release Build
         run: cargo build --release --target ${{ matrix.target }}
+      - name: 'Compress Binary'
+        uses: svenstaro/upx-action@v2
+        with:
+          files: target/${{ matrix.target }}/release/${{ env.PROJECT_NAME_UNDERSCORE }}${{ matrix.extension }}
+          args: ${{ matrix.upx_args }}
       - name: 'Upload Artifact'
         uses: actions/upload-artifact@v2
         with:
